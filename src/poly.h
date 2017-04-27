@@ -45,16 +45,15 @@ typedef struct Poly
 } Poly;
 
 /**
-  * Struktura przechowująca jednomian.
-  * Jednomian ma postać `p * x^e`.
-  * Współczynnik `p` może też być wielomianem.
-  * Będzie on traktowany jako wielomian nad kolejną zmienną (nie nad x).
-  */
+ * Struktura przechowująca jednomian.
+ * Jednomian ma postać `p * x^e`.
+ * Współczynnik `p` może też być wielomianem.
+ * Będzie on traktowany jako wielomian nad kolejną zmienną (nie nad x).
+ */
 typedef struct Mono
 {
     Poly p; ///< współczynnik
     poly_exp_t exp; ///< wykładnik
-    /* TODO */
 } Mono;
 
 /**
