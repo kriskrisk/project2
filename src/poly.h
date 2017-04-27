@@ -3,7 +3,6 @@
 
    @author Jakub Pawlewicz <pan@mimuw.edu.pl>
    @copyright Uniwersytet Warszawski
-   @date 2017-04-09
    @date 2017-04-24
 */
 
@@ -25,8 +24,8 @@ typedef int poly_exp_t;
 /** Struktura przechowująca listę jednomianów */
 typedef struct List
 {
-    Mono mono;
-    struct List *next;
+    Mono mono; ///< jednomian
+    struct List *next; ///< wskaźnik na następny jednomian
 } List;
 
 /**
@@ -37,10 +36,11 @@ typedef struct List
  */
 typedef struct Poly
 {
-    int var_idx;
-    union {
-        poly_coeff_t coeff;
-        List *listOfMono;
+    int var_idx; ///< indeks głównej zmiennej wielomianu
+    union
+    {
+        poly_coeff_t coeff; ///< wielomian stały
+        List *listOfMono; ///< wielomian normaly
     };
 } Poly;
 
