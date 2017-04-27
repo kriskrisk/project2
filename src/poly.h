@@ -111,7 +111,7 @@ static inline bool PolyIsZero(const Poly *p)
  * Usuwa wielomian z pamięci.
  * @param[in] p : wielomian
  */
-void PolyDestroy(Poly *p);
+extern void PolyDestroy(Poly *p);
 
 /**
  * Usuwa jednomian z pamięci.
