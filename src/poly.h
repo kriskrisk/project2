@@ -1,9 +1,9 @@
 /** @file
    Interfejs klasy wielomianów
 
-   @author Jakub Pawlewicz <pan@mimuw.edu.pl>, TODO
+   @author Jakub Pawlewicz <pan@mimuw.edu.pl>
    @copyright Uniwersytet Warszawski
-   @date 2017-04-09, TODO
+   @date 2017-04-09
 */
 
 #ifndef __POLY_H__
@@ -18,17 +18,33 @@ typedef long poly_coeff_t;
 /** Typ wykładników wielomianu */
 typedef int poly_exp_t;
 
+/** Wartość indeksu x-ksa dla wielomianu stałego */
+#define NO_VARIABLE (-1)
+
+/** Struktura przechowująca listę jednomianów */
+typedef struct List
+{
+    Mono mono;
+    struct List *next;
+} List;
+
 /**
- * Struktura przechowująca wielomian
- * TODO
+ * Struktura przechowująca wielomian.
+ * Wielomian jest listą jednomianów lub stałą.
+ * Jednomiany mają tę samą główną zmiennią co wielomian.
+ * `var_idx` to indeks głównej zmiennej wielomianu.
  */
 typedef struct Poly
 {
-    /* TODO */
+    int var_idx;
+    union {
+        poly_coeff_t coeff;
+        List *listOfMono;
+    };
 } Poly;
 
 /**
-  * Struktura przechowująca jednomian
+  * Struktura przechowująca jednomian.
   * Jednomian ma postać `p * x^e`.
   * Współczynnik `p` może też być wielomianem.
   * Będzie on traktowany jako wielomian nad kolejną zmienną (nie nad x).
@@ -45,7 +61,7 @@ typedef struct Mono
  * @return wielomian
  */
 static inline Poly PolyFromCoeff(poly_coeff_t c) {
-    /* TODO */
+    return (Poly) {.var_idx = NO_VARIABLE, .coeff = c};
 }
 
 /**
@@ -53,7 +69,7 @@ static inline Poly PolyFromCoeff(poly_coeff_t c) {
  * @return wielomian
  */
 static inline Poly PolyZero() {
-    /* TODO */
+    return PolyFromCoeff(0);
 }
 
 /**
@@ -73,7 +89,7 @@ static inline Mono MonoFromPoly(Poly *p, poly_exp_t e) {
  * @return Czy wielomian jest współczynnikiem?
  */
 static inline bool PolyIsCoeff(const Poly *p) {
-    /* TODO */
+    return p->var_idx != 0;
 }
 
 /**
@@ -82,7 +98,7 @@ static inline bool PolyIsCoeff(const Poly *p) {
  * @return Czy wielomian jest równy zero?
  */
 static inline bool PolyIsZero(const Poly *p) {
-    /* TODO */
+    return p->coeff == 0;
 }
 
 /**
@@ -96,7 +112,8 @@ void PolyDestroy(Poly *p);
  * @param[in] m : jednomian
  */
 static inline void MonoDestroy(Mono *m) {
-    /* TODO */
+    PolyDestroy(m->p);
+    free(m);
 }
 
 /**
@@ -112,7 +129,7 @@ Poly PolyClone(const Poly *p);
  * @return skopiowany jednomian
  */
 static inline Mono MonoClone(const Mono *m) {
-    /* TODO */
+    return (Mono) {.p = m->p, .exp = m->exp};
 }
 
 /**
