@@ -21,7 +21,9 @@ typedef int poly_exp_t;
 /** Wartość indeksu x-ksa dla wielomianu stałego */
 #define NO_VARIABLE (-1)
 
-/** Struktura przechowująca listę jednomianów */
+/** Struktura przechowująca listę jednomianów.
+ * Jednomiany są uporządkowane malejąco względem potęg.
+ */
 typedef struct List
 {
     Mono mono; ///< jednomian
@@ -33,6 +35,7 @@ typedef struct List
  * Wielomian jest listą jednomianów lub stałą.
  * Jednomiany mają tę samą główną zmiennią co wielomian.
  * `var_idx` to indeks głównej zmiennej wielomianu.
+ * Jeśli `var_idx` = NO_VARIABLE to jest to wielomian stały.
  */
 typedef struct Poly
 {
@@ -128,7 +131,7 @@ static inline void MonoDestroy(Mono *m)
  * @param[in] p : wielomian
  * @return skopiowany wielomian
  */
-Poly PolyClone(const Poly *p);
+extern Poly PolyClone(const Poly *p);
 
 /**
  * Robi pełną, głęboką kopię jednomianu.
@@ -146,7 +149,7 @@ static inline Mono MonoClone(const Mono *m)
  * @param[in] q : wielomian
  * @return `p + q`
  */
-Poly PolyAdd(const Poly *p, const Poly *q);
+extern Poly PolyAdd(const Poly *p, const Poly *q);
 
 /**
  * Sumuje listę jednomianów i tworzy z nich wielomian.
@@ -155,7 +158,7 @@ Poly PolyAdd(const Poly *p, const Poly *q);
  * @param[in] monos : tablica jednomianów
  * @return wielomian będący sumą jednomianów
  */
-Poly PolyAddMonos(unsigned count, const Mono monos[]);
+extern Poly PolyAddMonos(unsigned count, const Mono monos[]);
 
 /**
  * Mnoży dwa wielomiany.
@@ -163,14 +166,14 @@ Poly PolyAddMonos(unsigned count, const Mono monos[]);
  * @param[in] q : wielomian
  * @return `p * q`
  */
-Poly PolyMul(const Poly *p, const Poly *q);
+extern Poly PolyMul(const Poly *p, const Poly *q);
 
 /**
  * Zwraca przeciwny wielomian.
  * @param[in] p : wielomian
  * @return `-p`
  */
-Poly PolyNeg(const Poly *p);
+extern Poly PolyNeg(const Poly *p);
 
 /**
  * Odejmuje wielomian od wielomianu.
