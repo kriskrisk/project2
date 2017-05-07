@@ -11,6 +11,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdlib.h>
 
 /** Typ współczynników wielomianu */
 typedef long poly_coeff_t;
@@ -20,15 +21,6 @@ typedef int poly_exp_t;
 
 /** Wartość indeksu x-ksa dla wielomianu stałego */
 #define NO_VARIABLE (-1)
-
-/** Struktura przechowująca listę jednomianów.
- * Jednomiany są uporządkowane malejąco względem potęg.
- */
-typedef struct List
-{
-    Mono mono; ///< jednomian
-    struct List *next; ///< wskaźnik na następny jednomian
-} List;
 
 /**
  * Struktura przechowująca wielomian.
@@ -43,7 +35,7 @@ typedef struct Poly
     union
     {
         poly_coeff_t coeff; ///< wielomian stały
-        List *listOfMono; ///< wielomian normaly
+        struct List *list_of_mono; ///< wielomian normaly
     };
 } Poly;
 
@@ -58,6 +50,16 @@ typedef struct Mono
     Poly p; ///< współczynnik
     poly_exp_t exp; ///< wykładnik
 } Mono;
+
+/**
+ * Struktura przechowująca listę jednomianów.
+ * Jednomiany są uporządkowane malejąco względem potęg.
+ */
+typedef struct List
+{
+    Mono mono; ///< jednomian
+    struct List *next; ///< wskaźnik na następny jednomian
+} List;
 
 /**
  * Tworzy wielomian, który jest współczynnikiem.
@@ -97,8 +99,7 @@ static inline Mono MonoFromPoly(const Poly *p, poly_exp_t e)
  */
 static inline bool PolyIsCoeff(const Poly *p)
 {
-    return p->var_idx != 0;//coooo?
-    //czyli wielomian stały zawsze jest współczynnikiem
+    return p->var_idx != 0;
 }
 
 /**
@@ -123,7 +124,7 @@ extern void PolyDestroy(Poly *p);
  */
 static inline void MonoDestroy(Mono *m)
 {
-  PolyDestroy(m->p);
+  PolyDestroy(&(m->p));
   free(m);
 }
 

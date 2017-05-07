@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "poly.h"
 #include "const_arr.h"
 #include <limits.h>
@@ -1093,7 +1094,7 @@ bool SubTest2()
 }
 
 /**
- * Funkcja pomocnicza do tworzenie wyników mnożenia wielomianow 
+ * Funkcja pomocnicza do tworzenie wyników mnożenia wielomianow
  * @param size1 długość danych w arr_1
  * @param arr_1 tablica wspolczynnikow pierwszego wielomiannu
  * @param size2 długość danych w arr_2
@@ -1663,6 +1664,3 @@ bool OverflowTest()
     res &= TestAt(P(P(C(1), 1), 64), 2, C(0));
     return res;
 }
-
-
-

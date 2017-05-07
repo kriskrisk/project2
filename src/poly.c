@@ -6,20 +6,31 @@
 
 #include <stdbool.h>
 #include <math.h>
+#include <stdlib.h>
 
-static boolean IsNormal(const Poly *p)
+#include "poly.h"
+
+/**
+ * Sprawdza, czy wielomian jest normalny.
+ * @param[in] p : wielomian
+ * @return Czy wielomian jest normalny?
+ */
+static inline bool IsNormal(const Poly *p)
 {
     return p->var_idx != NO_VARIABLE;
 }
 
-//komentarz
-static void ListDestroy(List *listOfMono)
+/**
+ * Usuwa listę z pamięci.
+ * @param[in] m : lista.
+ */
+static void ListDestroy(List *list_of_mono)
 {
-    if (listOfMono != NULL)
+    if (list_of_mono != NULL)
     {
-        ListDestroy(listOfMono->next);
-        MonoDestroy(listOfMono->mono);
-        free(listOfMono);
+        ListDestroy(list_of_mono->next);
+        MonoDestroy(&(list_of_mono->mono));
+        free(list_of_mono);
     }
 }
 
@@ -27,21 +38,25 @@ void PolyDestroy(Poly *p)
 {
     if (IsNormal(p))
     {
-        ListDestroy(p->listOfMono);
+        ListDestroy(p->list_of_mono);
     }
 
     free(p);
 }
 
-//tu musi wjecha komentarz
-static List *ListClone(const List *listOfMono)
+/**
+ * Robi pełną, głęboką kopię listy.
+ * @param[in] list_of_mono : lista.
+ * @return skopiowana lista.
+ */
+static List *ListClone(const List *list_of_mono)
 {
-    if (listOfMono != NULL)
+    if (list_of_mono != NULL)
     {
-        List *newList = (List *)malloc(sizeof(List));
-        newList->next = ListClone(listOfMono->next);
-        newList->mono = MonoClone(listOfMono->mono);
-        return newList;
+        List *new_list_element = (List *)malloc(sizeof(List));
+        new_list_element->next = ListClone(list_of_mono->next);
+        new_list_element->mono = MonoClone(&(list_of_mono->mono));
+        return new_list_element;
     }
 
     return NULL;
@@ -54,7 +69,7 @@ Poly PolyClone(const Poly *p)
 
     if (IsNormal(p))
     {
-        copy.listOfMono = ListClone(p->listOfMono);
+        copy.list_of_mono = ListClone(p->list_of_mono);
     }
     else
     {
@@ -64,120 +79,117 @@ Poly PolyClone(const Poly *p)
     return copy;
 }
 
-//komntarz: wstawia przed wskazywane miejsce
-static List *AddToList(List *orygin, Mono *toAdd)
+/**
+ * Przestawia element z jednej listy do drugiej.
+ * Usuwa pierwszy element z listy @to_add i wstawia go na koniec drugiej listy.
+ * @param[in] end_of_list : lista jednomianów.
+ * @param[in] to_add : lista z której pierwszy element ma być przeniesiony.
+ */
+static void MoveToList(List **end_of_list, List **to_add)
 {
-    List *newElement = (List *)malloc(sizeof(List));
-    Mono *monoToAddCopy = MonoClone(toAdd);
+    *end_of_list = *to_add;
+    *to_add = (*to_add)->next;
+}
 
-    newElement->next = orygin;
-    newElement->mono = monoToAddCopy;
+/**
+ * Zwraca kopię listy jednomianów danego wielomianu.
+ * Jeśli wielomian jest stały tworzy jednoelementową
+ * listę z jednomianem o stopniu równym zero.
+ * @param[in] p : wielomian.
+ * @return skopiowana lista jednomianów.
+ */
+static List *GetListFromPoly(const Poly *p)
+{
+    if (!IsNormal(p))
+    {
+        List *p_mono = (List *)malloc(sizeof(List));
+        p_mono->next = NULL;
+        p_mono->mono = MonoFromPoly(p, 0);
 
-    return newElement;
+        return p_mono;
+    }
+
+    return ListClone(p->list_of_mono);
+}
+
+/**
+ * Usuwa pierwszy element z listy.
+ * Jeśli wielomian jest stały tworzy jednoelementową
+ * listę z jednomianem o stopniu równym zero.
+ * @param[in] list : lista jednomianów.
+ */
+static void DestroyFirstElement(List **list)
+{
+    List *to_delete = *list;
+    *list = (*list)->next;
+    to_delete->next = NULL;
+    ListDestroy(to_delete);
+}
+
+/**
+ * Wstawia listę na koniec drugiej listy.
+ * @param[in] rest_to_add : lista która ma być dodana na koniec.
+ * @param[in] list : koniec listy do której doda nowe elementy.
+ */
+static void AddRestToList(List **list, List *rest_to_add)
+{
+    if (rest_to_add != NULL)
+    {
+        *list = rest_to_add;
+    }
+}
+
+//dodaje dwie listy jednomianów
+//obie muszą istnieć oczywiście
+static List *ListAdd(List *p_list, List *q_list)
+{
+    List *sum = NULL;
+    List **last_element = &sum;
+
+    while (p_list != NULL && q_list != NULL)
+    {
+        if (p_list->mono.exp > q_list->mono.exp)
+        {
+            MoveToList(last_element, &p_list);
+            last_element = &((*last_element)->next);
+        }
+        else if (p_list->mono.exp < q_list->mono.exp)
+        {
+            MoveToList(last_element, &q_list);
+            last_element = &((*last_element)->next);
+        }
+        else
+        {
+            Poly new_coeff = PolyAdd(&(p_list->mono.p), &(q_list->mono.p));
+
+            if (!PolyIsZero(&new_coeff))
+            {
+                PolyDestroy(&(p_list->mono.p));
+                p_list->mono.p = new_coeff;
+
+                MoveToList(last_element, &p_list);
+                last_element = &((*last_element)->next);
+            }
+
+            DestroyFirstElement(&q_list);
+        }
+    }
+
+    AddRestToList(last_element, p_list);
+    AddRestToList(last_element, q_list);
+
+    return sum;
 }
 
 Poly PolyAdd(const Poly *p, const Poly *q)
 {
     if (!IsNormal(p) && !IsNormal(q))
     {
-          Poly Result;
-          Result.var_idx = NO_VARIABLE;
-          Result.coeff = p->coeff + q->coeff;
-
-          return Result;
+        return PolyFromCoeff(p->coeff + q->coeff);
     }
-    else if (IsNormal(p) && !IsNormal(q))
-    {
-        Poly Result = PolyClone(p);
 
-        if (PolyIsZero(q))
-        {
-            return Result;
-        }
-
-        List *iterator = Result->listOfMono;
-        while (iterator->next != NULL)
-        {
-            iterator = iterator->next;
-        }
-
-        if (iterator->mono->exp == 0)
-        {
-            iterator->mono->p = PolyAdd(iterator->mono->p, q);
-        }
-        else
-        {
-            List *newElement = (List *)malloc(sizeof(List));
-            newElement->next = NULL;
-            newElement->mono = MonoFromPoly(p, 0);
-
-            iterator->next = newElement;
-        }
-
-        return Result;
-    }
-    else if (!IsNormal(p) && IsNormal(q))
-    {
-        return PolyAdd(q, p);
-    }
-    else
-    {
-        List *listOfMono = (List *)malloc(sizeof(List));
-
-        List *pIterator = p->listOfMono;
-        List *qIterator = q->listOfMono;
-
-        while (pIterator != 0 && qIterator != 0)
-        {
-            if (pIterator->mono->exp > qIterator->mono->exp)
-            {
-                listOfMono = AddToList(listOfMono, pIterator);
-                pIterator = pIterator->next;
-            }
-            else if (pIterator->mono->exp < qIterator->mono->exp)
-            {
-                listOfMono = AddToList(listOfMono, qIterator);
-                qIterator = qIterator->next;
-            }
-            else
-            {
-                Poly newCoeff = PolyAdd(pIterator->mono->p, qIterator->mono->p);
-
-                if (!PolyIsZero(newCoeff))
-                {
-                    Mono *newMono = (Mono *)malloc(sizeof(Mono));
-                    newMono->exp = pIterator->mono->exp;
-                    newMono->p = newCoeff;
-
-                    List *newElement = (List *)malloc(sizeof(List));
-                    newElement->next = NULL;
-                    newElement->mono = newMono;
-
-                    listOfMono = AddToList(listOfMono, newElement);
-                }
-
-                pIterator = pIterator->next;
-                qIterator = qIterator->next;
-            }
-        }
-
-        List *listOfMonoEnd = listOfMono;
-
-        while (listOfMonoEnd->next != NULL) {
-            listOfMonoEnd = listOfMonoEnd->next;
-        }
-
-        if (pIterator != NULL)
-        {
-            listOfMonoEnd->next = pIterator;
-        }
-        else
-        {
-            listOfMonoEnd->next = qIterator;
-        }
-
-        return (Poly) {.var_idx = 0, .listOfMono = Result};
-    }
+    return (Poly) {.var_idx = p->var_idx,
+            .list_of_mono = ListAdd(GetListFromPoly(p), GetListFromPoly(q))};
 }
 
 //zakładam, że tablica monos[] jest posortowana malejąco
@@ -189,44 +201,74 @@ Poly PolyAddMonos(unsigned count, const Mono monos[])
         return PolyZero();
     }
 
-    Poly newPoly;
-    newPoly.var_idx = 0;
+    Poly new_poly;
+    new_poly.var_idx = 0;
 
     List *first = (List *)malloc(sizeof(List));
-    first->mono = &monos[0];
+    first->mono = monos[0];
 
     List *previous = first;
-    newPoly.listOfMono = first;
+    new_poly.list_of_mono = first;
 
     for (i = 1; i < count; i++)
     {
-        List *newElement = (List *)malloc(sizeof(List));
-        newElement->mono = &monos[i];
+        List *new_element = (List *)malloc(sizeof(List));
+        new_element->mono = monos[i];
 
-        previous->next = newElement;
-        previous = newElement;
+        previous->next = new_element;
+        previous = new_element;
     }
 
-    prevoius->next = NULL;
+    previous->next = NULL;
 
-    return newPoly;
+    return new_poly;
 }
 
-static Mono *MonoMul(const Mono pMono, const Mono qMono)
+/**
+ * Mnoże dwa jednomiany.
+ * @param[in] p_mono : jednomian.
+ * @param[in] q_mono : jednomian.
+ * @return jednomian będący wynikiem mnożenie `p` i `q`.
+ */
+static Mono MonoMul(const Mono p_mono, const Mono q_mono)
 {
-    return (Mono) {.p = pMono.exp + qMono.exp,
-     .exp = PolyMul(pMono.p, qMono.q)};
+    return (Mono) {.exp = p_mono.exp + q_mono.exp,
+            .p = PolyMul(&(p_mono.p), &(q_mono.p))};
 }
 
-//zakładamy, żę p jest normalny
-static Poly MulByCoeff(const Poly *p, const poly_coeff_t coeff)
+/**
+ * Mnoży wielomnian przez stałą.
+ * @param[in] p : wielomian.
+ * @param[in] multiplier : stała będąca współczynnikiem wielomianu.
+ */
+static void MulByCoeff(Poly *p, const poly_coeff_t multiplier)
 {
-    Poly result = PolyClone(p);
-    List *iterator = result->listOfMono;
+    if (p->var_idx == NO_VARIABLE)
+    {
+        p->coeff = p->coeff * multiplier;
+    }
+    else
+    {
+        List *iterator = p->list_of_mono;
+        while (iterator != NULL)
+        {
+            MulByCoeff(&(iterator->mono.p), multiplier);
+        }
+    }
+}
+
+static int NumberOfMonoInList(List *list)
+{
+    List *iterator = list;
+    int number_of_mono = 0;
+
     while (iterator != NULL)
     {
-        
+        number_of_mono++;
+        iterator = iterator->next;
     }
+
+    return number_of_mono;
 }
 
 Poly PolyMul(const Poly *p, const Poly *q)
@@ -238,58 +280,131 @@ Poly PolyMul(const Poly *p, const Poly *q)
 
     if (p->var_idx == NO_VARIABLE && q->var_idx == NO_VARIABLE)
     {
-        return PolyFromCoeff(p->coeff + q->coeff);
+        return PolyFromCoeff(p->coeff * q->coeff);
     }
 
     if (p->var_idx == NO_VARIABLE)
     {
-        return MulByCoeff(q, p->coeff);
+        Poly new_q = PolyClone(q);
+        MulByCoeff(&new_q, p->coeff);
+        return new_q;
     }
 
     if (q->var_idx == NO_VARIABLE)
     {
-        return MulByCoeff(p, q->coeff);
+        Poly new_p = PolyClone(p);
+        MulByCoeff(&new_p, q->coeff);
+        return new_p;
     }
 
-    List *pIterator = p->listOfMono;
-    List *newMonoList = (List *)malloc(sizeof(List));
-    while (pIterator != NULL)
+    Poly result;
+    result.var_idx = p->var_idx;
+
+    List *p_iterator = p->list_of_mono;
+    List *q_iterator = q->list_of_mono;
+
+    int p_number_of_mono = NumberOfMonoInList(p->list_of_mono);
+    int q_number_of_mono = NumberOfMonoInList(q->list_of_mono);
+
+    p_iterator = p->list_of_mono;
+    List *mul_array[p_number_of_mono];
+    int counter = 0;
+    List **pointer_to_last;
+
+    while (p_iterator != NULL)
     {
-        List *qIterator = q->listOfMono;
+        pointer_to_last = &mul_array[counter];
 
-        while (qIterator != NULL)
+        while (q_iterator != NULL)
         {
-            MonoMul(pIterator->mono, qIterator->mono);
+            List *new_element = (List *)malloc(sizeof(List));
+            *pointer_to_last = new_element;
+            pointer_to_last = &(new_element->next);
+
+            new_element->mono = MonoMul(p_iterator->mono, q_iterator->mono);
+
+            q_iterator = q_iterator->next;
         }
+        *pointer_to_last = NULL;
+
+        q_iterator = p->list_of_mono;
+        p_iterator = p_iterator->next;
+        counter++;
     }
+
+    pointer_to_last = &(result.list_of_mono);
+
+    for (int j = 0; j < p_number_of_mono * q_number_of_mono; j++)
+    {
+        int max_exp = -1;
+        int max_exp_position = -1;
+
+        for (int i = 0; i < p_number_of_mono; i++)
+        {
+            if (mul_array[i] != NULL)
+            {
+                if (mul_array[i]->mono.exp > max_exp) {
+                    max_exp = mul_array[i]->mono.exp;
+                    max_exp_position = i;
+                }
+            }
+        }
+
+        List *the_same_exp = mul_array[max_exp_position];
+        for (int i = max_exp_position + 1; i < p_number_of_mono; i++)
+        {
+            if (mul_array[i] != NULL)
+            {
+                if (mul_array[i]->mono.exp == max_exp) {
+                    Poly *old = &the_same_exp->mono.p;
+                    the_same_exp->mono.p = PolyAdd(old, &(mul_array[i]->mono.p));
+                    PolyDestroy(old);
+
+                    List *to_destroy = mul_array[i];
+                    mul_array[i] = mul_array[i]->next;
+
+                    to_destroy->next = NULL;
+                    ListDestroy(to_destroy);
+                }
+            }
+        }
+
+
+        *pointer_to_last = mul_array[max_exp_position];
+        mul_array[max_exp_position] = mul_array[max_exp_position]->next;
+        pointer_to_last = &((*pointer_to_last)->next);
+    }
+
+    return result;
 }
 
 Poly PolyNeg(const Poly *p)
 {
-    Poly negatedPoly = PolyClone(p);
+    Poly negated_poly = PolyClone(p);
 
-    if (negatedPoly->var_idx == NO_VARIABLE)
+    if (negated_poly.var_idx == NO_VARIABLE)
     {
-        negatedPoly->coeff == (-1) * negatedPoly->coeff;
+        negated_poly.coeff = (-1) * negated_poly.coeff;
     }
     else
     {
-        List *iterator = negatedPoly.listOfMono;
+        List *iterator = negated_poly.list_of_mono;
 
         while (iterator != NULL)
         {
-            iterator->mono->p = PolyNeg(iterator->mono->p);
+            iterator->mono.p = PolyNeg(&(iterator->mono.p));
             //mam nadzieję że tu nie tracę wskaźnika
             iterator = iterator->next;
         }
     }
 
-    return negatedPoly;
+    return negated_poly;
 }
 
 Poly PolySub(const Poly *p, const Poly *q)
 {
-    return PolyAdd(p, PolyNeg(q));
+    Poly negated_poly = PolyNeg(q);
+    return PolyAdd(p, &(negated_poly));
 }
 
 poly_exp_t PolyDegBy(const Poly *p, unsigned var_idx)
@@ -306,26 +421,26 @@ poly_exp_t PolyDegBy(const Poly *p, unsigned var_idx)
 
     if (p->var_idx < var_idx)
     {
-        List *iterator = p.listOfMono;
-        poly_exp_t maxExp = 0;
+        List *iterator = p->list_of_mono;
+        poly_exp_t max_exp = 0;
 
         while (iterator != NULL)
         {
-            poly_exp_t currentExp = PolyDegBy(iterator->mono->p, var_idx);
-            if (currentExp > maxExp)
+            poly_exp_t current_exp = PolyDegBy(&(iterator->mono.p), var_idx);
+            if (current_exp > max_exp)
             {
-                maxExp = currentExp;
+                max_exp = current_exp;
             }
 
             iterator = iterator->next;
         }
 
-        return maxExp;
+        return max_exp;
     }
 
     if (p->var_idx == var_idx)
     {
-        return p->listOfMono->mono->exp;
+        return p->list_of_mono->mono.exp;
     }
 }
 
@@ -341,42 +456,47 @@ poly_exp_t PolyDeg(const Poly *p)
         return 0;
     }
 
-    List *iterator = p.listOfMono;
-    poly_exp_t maxSumExp = 0;
+    List *iterator = p->list_of_mono;
+    poly_exp_t max_sum_exp = 0;
 
     while (iterator != NULL)
     {
-        poly_exp_t currentSumExp = PolyDeg(iterator->mono->p);
+        poly_exp_t current_sum_exp = PolyDeg(&(iterator->mono.p));
 
-        currentSumExp += iterator->mono->exp;
+        current_sum_exp += iterator->mono.exp;
 
-        if (currentSumExp > maxSumExp)
+        if (current_sum_exp > max_sum_exp)
         {
-            maxSumExp = currentSumExp;
+            max_sum_exp = current_sum_exp;
         }
 
         iterator = iterator->next;
     }
 
-    return maxSumExp;
+    return max_sum_exp;
 }
 
-static bool ListIsEq(List *pList, List *qList)
+/**
+ * Sprawdza równość dwóch list.
+ * @param[in] p_list : lista jednomianów
+ * @param[in] q_list : lista jednomianów
+ * @return `p_list = q_list`
+ */
+static bool ListIsEq(List *p_list, List *q_list)
 {
-    if (pList == NULL || qList == NULL)
+    if (p_list == NULL || q_list == NULL)
     {
-        if (pList != qList)
+        if (p_list != q_list)
         {
             return false;
         }
     }
 
-    if (pList->mono.exp != qList->mono.exp) {
+    if (p_list->mono.exp != q_list->mono.exp) {
         return false;
     }
 
-    return ListIsEq(pList->next, qList->next,) &&
-     PolyIsEq(pList->mono.p, qList->mono.p);
+    return ListIsEq(p_list->next, q_list->next) && PolyIsEq(&(p_list->mono.p), &(q_list->mono.p));
 }
 
 bool PolyIsEq(const Poly *p, const Poly *q)
@@ -399,19 +519,24 @@ bool PolyIsEq(const Poly *p, const Poly *q)
         }
     }
 
-    return ListIsEq(p->listOfMono, q->listOfMono);
+    return ListIsEq(p->list_of_mono, q->list_of_mono);
 }
 
+/**
+ * Mnoży wielomian przez stałą.
+ * @param[in] p : wielomian
+ * @param[in] multiplier : mnożnik który jest współczynnikiem wielomianu
+ */
 static void MultiplyPoly(Poly *p, poly_coeff_t multiplier)
 {
     if (p->var_idx != NO_VARIABLE)
     {
         p->var_idx--;
 
-        List *iterator = p->listOfMono;
+        List *iterator = p->list_of_mono;
         while (iterator != NULL)
         {
-            MultiplyPoly(&iterator->mono->p, multiplier);
+            MultiplyPoly(&iterator->mono.p, multiplier);
             iterator = iterator->next;
         }
     }
@@ -425,28 +550,28 @@ Poly PolyAt(const Poly *p, poly_coeff_t x)
 {
     if (PolyIsZero(p))
     {
-        return 0;
+        return PolyZero();
     }
 
     if (p->var_idx == NO_VARIABLE)
     {
-        return p->coeff;
+        return PolyFromCoeff(p->coeff);
     }
 
     Poly orygin = PolyClone(p);
-    Poly valueAt = PolyZero();
-    List *iterator = orygin->listOfMono;
+    Poly value_at = PolyZero();
+    List *iterator = orygin.list_of_mono;
     while (iterator != NULL)
     {
-        poly_coeff_t multiplier = pow(x, iterator->mono->exp);
-        MultiplyPoly(&iterator->mono->p, multiplier);
+        poly_coeff_t multiplier = (poly_coeff_t)pow(x, iterator->mono.exp);
+        MultiplyPoly(&iterator->mono.p, multiplier);
 
-        valueAt = PolyAdd(valueAt, iterator->mono->p);
+        value_at = PolyAdd(&(value_at), &(iterator->mono.p));
 
         iterator = iterator->next;
     }
 
-    PolyDestroy(orygin);
+    PolyDestroy(&orygin);
 
-    return valueAt;
+    return value_at;
 }
