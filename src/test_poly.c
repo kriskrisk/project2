@@ -3,8 +3,6 @@
 #include "const_arr.h"
 #include <assert.h>
 #include <limits.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
 
