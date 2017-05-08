@@ -270,7 +270,12 @@ static void PlaceInList(Mono **list, Mono *new_element)
 
 static Mono *Merge(Mono *first, Mono *secound)
 {
+    Mono *merged = (Mono *)malloc(sizeof(Mono));
+    Poly *p = (Poly *)malloc(sizeof(Poly));
+    *p = PolyAdd(&first->p, &secound->p);
+    *merged = MonoFromPoly(p, first->exp);
 
+    return merged;
 }
 
 static void MergeSameExp(Mono **list)
