@@ -17,19 +17,19 @@
  */
 static inline bool IsNormal(const Poly *p)
 {
-    return p->var_idx != NO_VARIABLE;
+    return p->is_normal;
 }
 
 /**
- * Usuwa listę z pamięci.
+ * Usuwa listę jednomianów z pamięci.
  * @param[in] m : lista.
  */
-static void ListDestroy(List *list_of_mono)
+static void ListOfMonoDestroy(Mono *list_of_mono)
 {
     if (list_of_mono != NULL)
     {
-        ListDestroy(list_of_mono->next);
-        MonoDestroy(&(list_of_mono->mono));
+        ListOfMonoDestroy(list_of_mono->next);
+        MonoDestroy(list_of_mono);
         free(list_of_mono);
     }
 }
@@ -38,7 +38,7 @@ void PolyDestroy(Poly *p)
 {
     if (IsNormal(p))
     {
-        ListDestroy(p->list_of_mono);
+        ListOfMonoDestroy(p->list_of_mono);
     }
 
     free(p);
@@ -49,13 +49,13 @@ void PolyDestroy(Poly *p)
  * @param[in] list_of_mono : lista.
  * @return skopiowana lista.
  */
-static List *ListClone(const List *list_of_mono)
+static Mono *ListOfMonoClone(const Mono *list_of_mono)
 {
     if (list_of_mono != NULL)
     {
-        List *new_list_element = (List *)malloc(sizeof(List));
-        new_list_element->next = ListClone(list_of_mono->next);
-        new_list_element->mono = MonoClone(&(list_of_mono->mono));
+        Mono *new_list_element = (Mono *)malloc(sizeof(Mono));
+        *new_list_element = MonoClone(list_of_mono);
+        new_list_element->next = ListOfMonoClone(list_of_mono->next);
         return new_list_element;
     }
 
@@ -65,11 +65,11 @@ static List *ListClone(const List *list_of_mono)
 Poly PolyClone(const Poly *p)
 {
     Poly copy;
-    copy.var_idx = p->var_idx;
+    copy.is_normal = p->is_normal;
 
     if (IsNormal(p))
     {
-        copy.list_of_mono = ListClone(p->list_of_mono);
+        copy.list_of_mono = ListOfMonoClone(p->list_of_mono);
     }
     else
     {
@@ -79,104 +79,73 @@ Poly PolyClone(const Poly *p)
     return copy;
 }
 
-/**
- * Przestawia element z jednej listy do drugiej.
- * Usuwa pierwszy element z listy @to_add i wstawia go na koniec drugiej listy.
- * @param[in] end_of_list : lista jednomianów.
- * @param[in] to_add : lista z której pierwszy element ma być przeniesiony.
- */
-static void MoveToList(List **end_of_list, List **to_add)
+static void AddNewElementToList(const Mono *mono, Mono **where_to_add)
 {
-    *end_of_list = *to_add;
-    *to_add = (*to_add)->next;
+    Mono *new_element = (Mono *)malloc(sizeof(Mono));
+    *new_element = MonoClone(mono);
+
+    *where_to_add = new_element;
 }
 
-/**
- * Zwraca kopię listy jednomianów danego wielomianu.
- * Jeśli wielomian jest stały tworzy jednoelementową
- * listę z jednomianem o stopniu równym zero.
- * @param[in] p : wielomian.
- * @return skopiowana lista jednomianów.
- */
-static List *GetListFromPoly(const Poly *p)
+static Mono *ListOfMonoAdd(Mono *p_list, Mono *q_list)
 {
-    if (!IsNormal(p))
+    Mono *sum = NULL;
+    Mono **last_element = &sum;
+    Mono *first_in_p = p_list;
+    Mono *first_in_q = q_list;
+
+    while (first_in_p != NULL && first_in_q != NULL)
     {
-        List *p_mono = (List *)malloc(sizeof(List));
-        p_mono->next = NULL;
-        p_mono->mono = MonoFromPoly(p, 0);
-
-        return p_mono;
-    }
-
-    return ListClone(p->list_of_mono);
-}
-
-/**
- * Usuwa pierwszy element z listy.
- * Jeśli wielomian jest stały tworzy jednoelementową
- * listę z jednomianem o stopniu równym zero.
- * @param[in] list : lista jednomianów.
- */
-static void DestroyFirstElement(List **list)
-{
-    List *to_delete = *list;
-    *list = (*list)->next;
-    to_delete->next = NULL;
-    ListDestroy(to_delete);
-}
-
-/**
- * Wstawia listę na koniec drugiej listy.
- * @param[in] rest_to_add : lista która ma być dodana na koniec.
- * @param[in] list : koniec listy do której doda nowe elementy.
- */
-static void AddRestToList(List **list, List *rest_to_add)
-{
-    if (rest_to_add != NULL)
-    {
-        *list = rest_to_add;
-    }
-}
-
-//dodaje dwie listy jednomianów
-//obie muszą istnieć oczywiście
-static List *ListAdd(List *p_list, List *q_list)
-{
-    List *sum = NULL;
-    List **last_element = &sum;
-
-    while (p_list != NULL && q_list != NULL)
-    {
-        if (p_list->mono.exp > q_list->mono.exp)
+        if (first_in_p->exp > first_in_q->exp)
         {
-            MoveToList(last_element, &p_list);
+            AddNewElementToList(first_in_p, last_element);
             last_element = &((*last_element)->next);
+            first_in_p = first_in_p->next;
         }
-        else if (p_list->mono.exp < q_list->mono.exp)
+        else if (first_in_p->exp < first_in_q->exp)
         {
-            MoveToList(last_element, &q_list);
+            AddNewElementToList(first_in_q, last_element);
             last_element = &((*last_element)->next);
+            first_in_q = first_in_q->next;
         }
         else
         {
-            Poly new_coeff = PolyAdd(&(p_list->mono.p), &(q_list->mono.p));
+            Poly *new_coeff = (Poly *)malloc(sizeof(Poly));
+            *new_coeff = PolyAdd(&(first_in_p->p), &(first_in_q->p));
 
-            if (!PolyIsZero(&new_coeff))
+            if (!PolyIsZero(new_coeff))
             {
-                PolyDestroy(&(p_list->mono.p));
-                p_list->mono.p = new_coeff;
+                Mono *new_element = (Mono *)malloc(sizeof(Mono));
+                *new_element = MonoFromPoly(new_coeff, first_in_p->exp);
 
-                MoveToList(last_element, &p_list);
+                *last_element = new_element;
                 last_element = &((*last_element)->next);
             }
+            else
+            {
+                PolyDestroy(new_coeff);
+            }
 
-            DestroyFirstElement(&q_list);
+            first_in_p = first_in_p->next;
+            first_in_q = first_in_q->next;
         }
     }
 
-    AddRestToList(last_element, p_list);
-    AddRestToList(last_element, q_list);
+    while (first_in_p != NULL)
+    {
+        AddNewElementToList(first_in_p, last_element);
+        last_element = &((*last_element)->next);
+        first_in_p = first_in_p->next;
+    }
+
+    while (first_in_q != NULL)
+    {
+        AddNewElementToList(first_in_q, last_element);
+        last_element = &((*last_element)->next);
+        first_in_q = first_in_q->next;
+    }
+
+    *last_element = NULL;
 
     return sum;
 }
@@ -188,59 +157,90 @@ Poly PolyAdd(const Poly *p, const Poly *q)
         return PolyFromCoeff(p->coeff + q->coeff);
     }
 
-    return (Poly) {.var_idx = p->var_idx,
-            .list_of_mono = ListAdd(GetListFromPoly(p), GetListFromPoly(q))};
+    Mono *summed_list = ListOfMonoAdd(p->list_of_mono, q->list_of_mono);
+
+    if (summed_list == NULL)
+    {
+        return PolyZero();
+    }
+
+    return (Poly) {.is_normal = true, .list_of_mono = summed_list};
 }
 
-//zakładam, że tablica monos[] jest posortowana malejąco
+Mono *MakeListFromArray(unsigned count, const Mono monos[])
+{
+    bool used[count];
+    for (int i = 0; i < count; i++)
+    {
+        used[i] = false;
+    }
+
+    Mono *list;
+    Mono **last = &list;
+    int max_position;
+    int max_exp;
+
+    for (int i = 0; i < count; i ++)
+    {
+        max_exp = -1;
+        max_position = -1;
+
+        for (int j = 0; j < count; j++)
+        {
+            if (monos[j].exp > max_exp && !used[j])
+            {
+                max_exp = monos[j].exp;
+                max_position = j;
+            }
+        }
+
+        used[max_position] = true;
+        Mono *new_element = (Mono *)malloc(sizeof(Mono));
+        *new_element = MonoClone(&monos[max_position]);
+        *last = new_element;
+        last = &(new_element->next);
+    }
+
+    *last = NULL;
+    return list;
+}
+
 Poly PolyAddMonos(unsigned count, const Mono monos[])
 {
-    int i;
     if (count == 0)
     {
         return PolyZero();
     }
 
-    Poly new_poly;
-    new_poly.var_idx = 0;
+    Poly sum;
+    sum.is_normal = true;
+    sum.list_of_mono = MakeListFromArray(count, monos);
 
-    List *first = (List *)malloc(sizeof(List));
-    first->mono = monos[0];
-
-    List *previous = first;
-    new_poly.list_of_mono = first;
-
-    for (i = 1; i < count; i++)
-    {
-        List *new_element = (List *)malloc(sizeof(List));
-        new_element->mono = monos[i];
-
-        previous->next = new_element;
-        previous = new_element;
-    }
-
-    previous->next = NULL;
-
-    return new_poly;
+    return sum;
 }
+/*
 
+*/
 /**
  * Mnoże dwa jednomiany.
  * @param[in] p_mono : jednomian.
  * @param[in] q_mono : jednomian.
  * @return jednomian będący wynikiem mnożenie `p` i `q`.
- */
+ *//*
+
 static Mono MonoMul(const Mono p_mono, const Mono q_mono)
 {
     return (Mono) {.exp = p_mono.exp + q_mono.exp,
             .p = PolyMul(&(p_mono.p), &(q_mono.p))};
 }
 
+*/
 /**
  * Mnoży wielomnian przez stałą.
  * @param[in] p : wielomian.
  * @param[in] multiplier : stała będąca współczynnikiem wielomianu.
- */
+ *//*
+
 static void MulByCoeff(Poly *p, const poly_coeff_t multiplier)
 {
     if (p->var_idx == NO_VARIABLE)
@@ -476,12 +476,14 @@ poly_exp_t PolyDeg(const Poly *p)
     return max_sum_exp;
 }
 
+*/
 /**
  * Sprawdza równość dwóch list.
  * @param[in] p_list : lista jednomianów
  * @param[in] q_list : lista jednomianów
  * @return `p_list = q_list`
- */
+ *//*
+
 static bool ListIsEq(List *p_list, List *q_list)
 {
     if (p_list == NULL || q_list == NULL)
@@ -522,11 +524,13 @@ bool PolyIsEq(const Poly *p, const Poly *q)
     return ListIsEq(p->list_of_mono, q->list_of_mono);
 }
 
+*/
 /**
  * Mnoży wielomian przez stałą.
  * @param[in] p : wielomian
  * @param[in] multiplier : mnożnik który jest współczynnikiem wielomianu
- */
+ *//*
+
 static void MultiplyPoly(Poly *p, poly_coeff_t multiplier)
 {
     if (p->var_idx != NO_VARIABLE)
@@ -575,3 +579,4 @@ Poly PolyAt(const Poly *p, poly_coeff_t x)
 
     return value_at;
 }
+*/
