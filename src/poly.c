@@ -157,7 +157,8 @@ Poly PolyAdd(const Poly *p, const Poly *q)
         return PolyFromCoeff(p->coeff + q->coeff);
     }
 
-    Mono *summed_list = ListOfMonoAdd(p->list_of_mono, q->list_of_mono);
+    Mono *summed_list = ListOfMonoAdd(p->is_normal? p->list_of_mono : NULL,
+                                      q->is_normal? q->list_of_mono : NULL);
 
     if (summed_list == NULL)
     {
@@ -356,34 +357,67 @@ Poly PolyMul(const Poly *p, const Poly *q)
     return result;
 }
 
-Poly PolyNeg(const Poly *p)
+static void AllCoeffNeg(Poly *p)
 {
-    Poly negated_poly = PolyClone(p);
-
-    if (negated_poly.var_idx == NO_VARIABLE)
+    if (!p->is_normal)
     {
-        negated_poly.coeff = (-1) * negated_poly.coeff;
+        p->coeff = p->coeff * (-1);
     }
     else
     {
-        List *iterator = negated_poly.list_of_mono;
+        Mono *iterator = p->list_of_mono;
 
         while (iterator != NULL)
         {
-            iterator->mono.p = PolyNeg(&(iterator->mono.p));
-            //mam nadzieję że tu nie tracę wskaźnika
+            AllCoeffNeg(&iterator->p);
             iterator = iterator->next;
         }
     }
+}
+
+Poly PolyNeg(const Poly *p) {
+    Poly negated_poly = PolyClone(p);
+    AllCoeffNeg(&negated_poly);
 
     return negated_poly;
 }
 
 Poly PolySub(const Poly *p, const Poly *q)
 {
-    //a co z alokacją pamięci?
-    Poly negated_poly = PolyNeg(q);
-    return PolyAdd(p, &(negated_poly));
+    Poly *q_negated = (Poly *)malloc(sizeof(Poly));
+    *q_negated = PolyNeg(q);
+
+    return PolyAdd(p, q_negated);
+}
+
+static poly_coeff_t PolyDegByWithIdx(const Poly *p, unsigned var_idx, unsigned curr_idx)
+{
+    if (!p->is_normal)
+    {
+        return 0;
+    }
+
+    if (curr_idx < var_idx)
+    {
+        poly_coeff_t max_deg = 0;
+        Mono *iterator = p->list_of_mono;
+
+        while (iterator != NULL)
+        {
+            poly_coeff_t curr_deg = PolyDegByWithIdx(&iterator->p, var_idx, curr_idx + 1);
+
+            if (curr_deg > max_deg)
+            {
+                max_deg = curr_deg;
+            }
+
+            iterator = iterator->next;
+        }
+
+        return max_deg;
+    }
+
+    return p->list_of_mono->exp;
 }
 
 poly_exp_t PolyDegBy(const Poly *p, unsigned var_idx)
@@ -393,34 +427,7 @@ poly_exp_t PolyDegBy(const Poly *p, unsigned var_idx)
         return -1;
     }
 
-    if (p->var_idx == NO_VARIABLE)
-    {
-        return 0;
-    }
-
-    if (p->var_idx < var_idx)
-    {
-        List *iterator = p->list_of_mono;
-        poly_exp_t max_exp = 0;
-
-        while (iterator != NULL)
-        {
-            poly_exp_t current_exp = PolyDegBy(&(iterator->mono.p), var_idx);
-            if (current_exp > max_exp)
-            {
-                max_exp = current_exp;
-            }
-
-            iterator = iterator->next;
-        }
-
-        return max_exp;
-    }
-
-    if (p->var_idx == var_idx)
-    {
-        return p->list_of_mono->mono.exp;
-    }
+    return PolyDegByWithIdx(p, var_idx, 0);
 }
 
 poly_exp_t PolyDeg(const Poly *p)
@@ -430,19 +437,18 @@ poly_exp_t PolyDeg(const Poly *p)
         return -1;
     }
 
-    if (p->var_idx == NO_VARIABLE)
+    if (!p->is_normal)
     {
         return 0;
     }
 
-    List *iterator = p->list_of_mono;
+    Mono *iterator = p->list_of_mono;
     poly_exp_t max_sum_exp = 0;
 
     while (iterator != NULL)
     {
-        poly_exp_t current_sum_exp = PolyDeg(&(iterator->mono.p));
-
-        current_sum_exp += iterator->mono.exp;
+        poly_exp_t current_sum_exp = PolyDeg(&(iterator->p));
+        current_sum_exp += iterator->exp;
 
         if (current_sum_exp > max_sum_exp)
         {
@@ -455,74 +461,32 @@ poly_exp_t PolyDeg(const Poly *p)
     return max_sum_exp;
 }
 
-
-/**
- * Sprawdza równość dwóch list.
- * @param[in] p_list : lista jednomianów
- * @param[in] q_list : lista jednomianów
- * @return `p_list = q_list`
- *//*
-
- odjęcie i przyrównanie do zera
-
-
-static bool ListIsEq(List *p_list, List *q_list)
-{
-    if (p_list == NULL || q_list == NULL)
-    {
-        if (p_list != q_list)
-        {
-            return false;
-        }
-    }
-
-    if (p_list->mono.exp != q_list->mono.exp) {
-        return false;
-    }
-
-    return ListIsEq(p_list->next, q_list->next) && PolyIsEq(&(p_list->mono.p), &(q_list->mono.p));
-}
-
 bool PolyIsEq(const Poly *p, const Poly *q)
 {
-    if (PolyIsZero(p) != PolyIsZero(q))
-    {
-        return false;
-    }
+    Poly *subtraction = (Poly *)malloc(sizeof(Poly));
+    *subtraction = PolySub(p, q);
 
-    if (p->var_idx == NO_VARIABLE || q->var_idx == NO_VARIABLE)
-    {
-        if (q->var_idx != p->var_idx)
-        {
-            return false;
-        }
+    bool isEq = PolyIsZero(subtraction);
+    PolyDestroy(subtraction);
 
-        if (p->coeff != q->coeff)
-        {
-            return false;
-        }
-    }
-
-    return ListIsEq(p->list_of_mono, q->list_of_mono);
+    return isEq;
 }
 
-*/
+
 /**
  * Mnoży wielomian przez stałą.
+ * Przejmuje na własność wielomian p.
  * @param[in] p : wielomian
  * @param[in] multiplier : mnożnik który jest współczynnikiem wielomianu
- *//*
-
+ */
 static void MultiplyPoly(Poly *p, poly_coeff_t multiplier)
 {
-    if (p->var_idx != NO_VARIABLE)
+    if (p->is_normal)
     {
-        p->var_idx--;
-
-        List *iterator = p->list_of_mono;
+        Mono *iterator = p->list_of_mono;
         while (iterator != NULL)
         {
-            MultiplyPoly(&iterator->mono.p, multiplier);
+            MultiplyPoly(&iterator->p, multiplier);
             iterator = iterator->next;
         }
     }
@@ -539,26 +503,30 @@ Poly PolyAt(const Poly *p, poly_coeff_t x)
         return PolyZero();
     }
 
-    if (p->var_idx == NO_VARIABLE)
+    if (!p->is_normal)
     {
         return PolyFromCoeff(p->coeff);
     }
 
-    Poly orygin = PolyClone(p);
     Poly value_at = PolyZero();
-    List *iterator = orygin.list_of_mono;
+    Mono *iterator =p->list_of_mono;
+
     while (iterator != NULL)
     {
-        poly_coeff_t multiplier = (poly_coeff_t)pow(x, iterator->mono.exp);
-        MultiplyPoly(&iterator->mono.p, multiplier);
+        Poly *poly = (Poly *)malloc(sizeof(Poly));
+        *poly = PolyClone(&iterator->p);
 
-        value_at = PolyAdd(&(value_at), &(iterator->mono.p));
+        poly_coeff_t multiplier = (poly_coeff_t)pow(x, iterator->exp);
+        MultiplyPoly(poly, multiplier);
 
+        Poly sum = PolyAdd(&(value_at), poly);
+
+        PolyDestroy(poly);
+        PolyDestroy(&value_at);
+
+        value_at = sum;
         iterator = iterator->next;
     }
 
-    PolyDestroy(&orygin);
-
     return value_at;
 }
-*/
