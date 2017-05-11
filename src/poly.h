@@ -129,9 +129,7 @@ extern Poly PolyClone(const Poly *p);
  */
 static inline Mono MonoClone(const Mono *m)
 {
-    Poly *poly_copy = (Poly *)malloc(sizeof(Poly));
-    *poly_copy = PolyClone(&(m->p));
-    return (Mono) {.p = *poly_copy, .exp = m->exp, .next = NULL};
+    return (Mono) {.p = PolyClone(&m->p), .exp = m->exp, .next = NULL};
 }
 
 /**

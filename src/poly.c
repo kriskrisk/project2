@@ -30,8 +30,6 @@ void PolyDestroy(Poly *p)
     {
         ListOfMonoDestroy(p->list_of_mono);
     }
-
-    free(p);
 }
 
 /**
@@ -168,9 +166,8 @@ static Mono *PolyGetList(const Poly *p)
     if (!p->is_normal)
     {
         Mono *new_list = (Mono *)malloc(sizeof(Mono));
-        Poly *coeff_copy = (Poly *)malloc(sizeof(Poly));
-        *coeff_copy = PolyClone(p);
-        *new_list = MonoFromPoly(coeff_copy, 0);
+        Poly new_coeff = PolyClone(p);
+        *new_list = MonoFromPoly(&new_coeff, 0);
 
         return new_list;
     }
@@ -202,6 +199,7 @@ Poly PolyAdd(const Poly *p, const Poly *q)
 
     Mono *summed_list = ListOfMonoAdd(p_list, q_list);
 
+    //usunięcie niepotrzebnej alokacji listy wielominu stałego
     if (!p->is_normal)
     {
         ListOfMonoDestroy(p_list);
@@ -349,17 +347,16 @@ static void PlaceInList(Mono **list, Mono *new_element)
 static Mono *Merge(Mono *first, Mono *secound)
 {
     Mono *merged = (Mono *)malloc(sizeof(Mono));
-    Poly *p = (Poly *)malloc(sizeof(Poly));
-    *p = PolyAdd(&first->p, &secound->p);
+    Poly p = PolyAdd(&first->p, &secound->p);
 
-    if (PolyIsZero(p))
+    if (PolyIsZero(&p))
     {
         free(merged);
-        PolyDestroy(p);
+        //PolyDestroy(&p);
         return NULL;
     }
 
-    *merged = MonoFromPoly(p, first->exp);
+    *merged = MonoFromPoly(&p, first->exp);
 
     return merged;
 }
@@ -386,9 +383,13 @@ static void MergeSameExp(Mono **list)
                 temp = (*list)->next->next;
             }
 
-            PolyDestroy(&(*list)->next->p);
-            PolyDestroy(&(*list)->p);
+            MonoDestroy((*list)->next);
+            MonoDestroy(*list);
 
+            //PolyDestroy(&(*list)->next->p);
+            //PolyDestroy(&(*list)->p);
+//problem: nie każdy jednomian musiał być zaalokowany
+            //zmieniam zdanie, skoro jednomian jest w liście wielomianu to musi być zaalokowany
             free((*list)->next);
             free(*list);
 
@@ -445,9 +446,8 @@ Poly PolyMul(const Poly *p, const Poly *q)
         while (q_iterator != NULL)
         {
             Mono *new_element = (Mono *)malloc(sizeof(Mono));
-            Poly *mul_coeff = (Poly *)malloc(sizeof(Poly));
-            *mul_coeff = PolyMul(&p_iterator->p, &q_iterator->p);
-            *new_element = MonoFromPoly(mul_coeff,
+            Poly mul_coeff = PolyMul(&p_iterator->p, &q_iterator->p);
+            *new_element = MonoFromPoly(&mul_coeff,
                                         p_iterator->exp + q_iterator->exp);
 
             PlaceInList(result_list, new_element);
@@ -493,10 +493,9 @@ Poly PolyNeg(const Poly *p) {
 
 Poly PolySub(const Poly *p, const Poly *q)
 {
-    Poly *q_negated = (Poly *)malloc(sizeof(Poly));
-    *q_negated = PolyNeg(q);
+    Poly q_negated = PolyNeg(q);
 
-    return PolyAdd(p, q_negated);
+    return PolyAdd(p, &q_negated);
 }
 
 /**
@@ -579,15 +578,13 @@ poly_exp_t PolyDeg(const Poly *p)
 
 bool PolyIsEq(const Poly *p, const Poly *q)
 {
-    Poly *subtraction = (Poly *)malloc(sizeof(Poly));
-    *subtraction = PolySub(p, q);
+    Poly subtraction = PolySub(p, q);
 
-    bool isEq = PolyIsZero(subtraction);
-    PolyDestroy(subtraction);
+    bool isEq = PolyIsZero(&subtraction);
+    PolyDestroy(&subtraction);
 
     return isEq;
 }
-
 
 /**
  * Mnoży wielomian przez stałą.
@@ -628,15 +625,14 @@ Poly PolyAt(const Poly *p, poly_coeff_t x)
 
     while (iterator != NULL)
     {
-        Poly *poly = (Poly *)malloc(sizeof(Poly));
-        *poly = PolyClone(&iterator->p);
+        Poly poly = PolyClone(&iterator->p);
 
         poly_coeff_t multiplier = (poly_coeff_t)pow(x, iterator->exp);
-        MultiplyPoly(poly, multiplier);
+        MultiplyPoly(&poly, multiplier);
 
-        Poly sum = PolyAdd(&(value_at), poly);
+        Poly sum = PolyAdd(&(value_at), &poly);
 
-        PolyDestroy(poly);
+        PolyDestroy(&poly);
         PolyDestroy(&value_at);
 
         value_at = sum;
