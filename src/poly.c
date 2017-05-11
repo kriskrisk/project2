@@ -11,16 +11,6 @@
 #include "poly.h"
 
 /**
- * Sprawdza, czy wielomian jest normalny.
- * @param[in] p : wielomian
- * @return Czy wielomian jest normalny?
- */
-static inline bool IsNormal(const Poly *p)
-{
-    return p->is_normal;
-}
-
-/**
  * Usuwa listę jednomianów z pamięci.
  * @param[in] m : lista.
  */
@@ -36,7 +26,7 @@ static void ListOfMonoDestroy(Mono *list_of_mono)
 
 void PolyDestroy(Poly *p)
 {
-    if (IsNormal(p))
+    if (p->is_normal)
     {
         ListOfMonoDestroy(p->list_of_mono);
     }
@@ -67,7 +57,7 @@ Poly PolyClone(const Poly *p)
     Poly copy;
     copy.is_normal = p->is_normal;
 
-    if (IsNormal(p))
+    if (p->is_normal)
     {
         copy.list_of_mono = ListOfMonoClone(p->list_of_mono);
     }
@@ -79,6 +69,13 @@ Poly PolyClone(const Poly *p)
     return copy;
 }
 
+/**
+ * Wstawia nowy element do listy na wskazane miejsce.
+ * Przejmuje na własność zawartość struktury wskazywanej przez @p mono i
+ * wskaźnik (oraz strukturę na którą wskazuje) wskazany przez @p where_to_add.
+ * @param[in] mono : jednomian, nowy element listy
+ * @param[in] where_to_add : wskaźnik na listę
+ */
 static void AddNewElementToList(const Mono *mono, Mono **where_to_add)
 {
     Mono *new_element = (Mono *)malloc(sizeof(Mono));
@@ -87,6 +84,14 @@ static void AddNewElementToList(const Mono *mono, Mono **where_to_add)
     *where_to_add = new_element;
 }
 
+/**
+ * Dodaje dwie listy jednomianów.
+ * W wyniku dodawania list powstaje posortowana lista.
+ * Alokuje pamięć na listę wynikową.
+ * @param[in] p_list : lista jednomianów
+ * @param[in] q_list : lista jednomianów
+ * @return suma list jednomianów
+ */
 static Mono *ListOfMonoAdd(Mono *p_list, Mono *q_list)
 {
     Mono *sum = NULL;
@@ -150,15 +155,62 @@ static Mono *ListOfMonoAdd(Mono *p_list, Mono *q_list)
     return sum;
 }
 
+/**
+ * Zwraca listę jednomianów danego wielominu.
+ * W przypadku wielominu stałego zwraca nową litę zawierającą jednomian
+ * równy temu wielomianowi stałemu.
+ * Alokuje pamięć dla nowej listy wielomianu stałego.
+ * @param[in] p : wielomian
+ * @return lista jednomianów
+ */
+static Mono *PolyGetList(const Poly *p)
+{
+    if (!p->is_normal)
+    {
+        Mono *new_list = (Mono *)malloc(sizeof(Mono));
+        Poly *coeff_copy = (Poly *)malloc(sizeof(Poly));
+        *coeff_copy = PolyClone(p);
+        *new_list = MonoFromPoly(coeff_copy, 0);
+
+        return new_list;
+    }
+
+    return p->list_of_mono;
+}
+
 Poly PolyAdd(const Poly *p, const Poly *q)
 {
-    if (!IsNormal(p) && !IsNormal(q))
+    if (!p->is_normal && !q->is_normal)
     {
         return PolyFromCoeff(p->coeff + q->coeff);
     }
 
-    Mono *summed_list = ListOfMonoAdd(p->is_normal? p->list_of_mono : NULL,
-                                      q->is_normal? q->list_of_mono : NULL);
+    if (PolyIsZero(p))
+    {
+        return PolyClone(q);
+    }
+
+    if (PolyIsZero(q))
+    {
+        return PolyClone(p);
+    }
+    Mono *p_list;
+    Mono *q_list;
+
+    p_list = PolyGetList(p);
+    q_list = PolyGetList(q);
+
+    Mono *summed_list = ListOfMonoAdd(p_list, q_list);
+
+    if (!p->is_normal)
+    {
+        ListOfMonoDestroy(p_list);
+    }
+
+    if (!q->is_normal)
+    {
+        ListOfMonoDestroy(q_list);
+    }
 
     if (summed_list == NULL)
     {
@@ -168,7 +220,14 @@ Poly PolyAdd(const Poly *p, const Poly *q)
     return (Poly) {.is_normal = true, .list_of_mono = summed_list};
 }
 
-Mono *MakeListFromArray(unsigned count, const Mono monos[])
+/**
+ * Tworzy listę z jednomianów z tablicy.
+ * Przejmuje na własność zawartość tablicy @p monos.
+ * @param[in] count : liczba jednomianów w tablicy
+ * @param[in] monos : tablica jednomianów
+ * @return lista jednomianów
+ */
+static Mono *MakeListFromArray(unsigned count, const Mono monos[])
 {
     bool used[count];
     for (int i = 0; i < count; i++)
@@ -238,10 +297,20 @@ static void MulByCoeff(Poly *p, const poly_coeff_t multiplier)
         while (iterator != NULL)
         {
             MulByCoeff(&(iterator->p), multiplier);
+            iterator = iterator->next;
         }
     }
 }
 
+/**
+ * Wstawia jednomian na właśćiwe miejsce listy.
+ * Lista jest posortowana nierosnąco.
+ * Jeśli w liście już istnieje jednomian o wykładniku równym
+ * wykładnikowi nowego elementu, to nowy element znajdzie się na
+ * końcu ciągu elementów o tym samym wykładniku.
+ * @param[in] list : wskaźnik na listę
+ * @param[in] new_element : jednomian
+ */
 static void PlaceInList(Mono **list, Mono *new_element)
 {
     if (*list == NULL)
@@ -260,6 +329,7 @@ static void PlaceInList(Mono **list, Mono *new_element)
             if ((*list)->next == NULL)
             {
                 (*list)->next = new_element;
+                new_element->next = NULL;
             }
             else
             {
@@ -269,16 +339,36 @@ static void PlaceInList(Mono **list, Mono *new_element)
     }
 }
 
+/**
+ * Dodaje dwa jednomiany o tym samym wykładniku.
+ * Jeśli w wyniku dodawania powstaje wielomian zerowy zwraca NULL.
+ * @param[in] first : jednomian
+ * @param[in] secound : jednomian
+ * @return wysumowany jednomian
+ */
 static Mono *Merge(Mono *first, Mono *secound)
 {
     Mono *merged = (Mono *)malloc(sizeof(Mono));
     Poly *p = (Poly *)malloc(sizeof(Poly));
     *p = PolyAdd(&first->p, &secound->p);
+
+    if (PolyIsZero(p))
+    {
+        free(merged);
+        PolyDestroy(p);
+        return NULL;
+    }
+
     *merged = MonoFromPoly(p, first->exp);
 
     return merged;
 }
 
+/**
+ * Sumuje jednomiany o tych samych wykładnikach znajdujące się w liście.
+ * Zakładamy, że lista jest posortowana nierosnąco.
+ * @param[in] list : wskaźnik na listę jednomianów
+ */
 static void MergeSameExp(Mono **list)
 {
     if (*list != NULL && (*list)->next != NULL)
@@ -286,15 +376,24 @@ static void MergeSameExp(Mono **list)
         if ((*list)->exp == (*list)->next->exp)
         {
             Mono *temp = Merge(*list, (*list)->next);
-            temp->next = (*list)->next->next;
 
-            PolyDestroy(&(*list)->p);
+            if (temp != NULL)
+            {
+                temp->next = (*list)->next->next;
+            }
+            else
+            {
+                temp = (*list)->next->next;
+            }
+
             PolyDestroy(&(*list)->next->p);
+            PolyDestroy(&(*list)->p);
 
             free((*list)->next);
             free(*list);
 
             *list = temp;
+            MergeSameExp(list);
         }
         else
         {
@@ -331,15 +430,18 @@ Poly PolyMul(const Poly *p, const Poly *q)
 
     Poly result;
     result.is_normal = true;
+    result.list_of_mono = NULL;
 
     Mono *p_iterator = p->list_of_mono;
-    Mono *q_iterator = q->list_of_mono;
+    Mono *q_iterator;
 
     Mono **result_list;
     result_list = &result.list_of_mono;
 
     while (p_iterator != NULL)
     {
+        q_iterator = q->list_of_mono;
+
         while (q_iterator != NULL)
         {
             Mono *new_element = (Mono *)malloc(sizeof(Mono));
@@ -349,7 +451,10 @@ Poly PolyMul(const Poly *p, const Poly *q)
                                         p_iterator->exp + q_iterator->exp);
 
             PlaceInList(result_list, new_element);
+            q_iterator = q_iterator->next;
         }
+
+        p_iterator = p_iterator->next;
     }
 
     MergeSameExp(result_list);
@@ -357,6 +462,10 @@ Poly PolyMul(const Poly *p, const Poly *q)
     return result;
 }
 
+/**
+ * Neguje wszystkie wielomiany stałe wchodzące w skaład podanego wielomianu.
+ * @param[in] p : wielomian
+ */
 static void AllCoeffNeg(Poly *p)
 {
     if (!p->is_normal)
@@ -390,6 +499,13 @@ Poly PolySub(const Poly *p, const Poly *q)
     return PolyAdd(p, q_negated);
 }
 
+/**
+ * Zwraca stopień wielomianu ze względu na zadaną zmienną.
+ * @param[in] p : wielominan
+ * @param[in] var_idx : indeks zmiennej
+ * @param[in] curr_idx : indeks głównej zmiennej wielomianu @p p
+ * @return stopień wielomianu @p p z względu na zmienną o indeksie @p var_idx
+ */
 static poly_coeff_t PolyDegByWithIdx(const Poly *p, unsigned var_idx, unsigned curr_idx)
 {
     if (!p->is_normal)
@@ -475,7 +591,6 @@ bool PolyIsEq(const Poly *p, const Poly *q)
 
 /**
  * Mnoży wielomian przez stałą.
- * Przejmuje na własność wielomian p.
  * @param[in] p : wielomian
  * @param[in] multiplier : mnożnik który jest współczynnikiem wielomianu
  */

@@ -8,19 +8,19 @@
 
 #define ALL_TESTS "all"
 #define MEMORY "memory"
-#define LONG_POLYNOMIAL "long-polynomial"
+#define LONG_POLYNOMIAL "long-polynomial"//coś źle
 #define DEG "deg"
-#define DEG_SIMPLE "deg-simple"
+#define DEG_SIMPLE "deg-simple"//coś żle
 #define DEG_OP "deg-op"
 #define DEG_BY "deg-by"
-#define SIMPLE_AT "simple-at"
+#define SIMPLE_AT "simple-at"//coś źle
 #define SIMPLE_AT2 "simple-at2"
 #define AT "at"
-#define MUL_SIMPLE "mul-simple"
-#define MUL "mul"
-#define ADD "add"
-#define ADD_REQ "add-req"
-#define SUB "sub"
+#define MUL_SIMPLE "mul-simple"//coś źle
+#define MUL "mul"//coś źle
+#define ADD "add"//źle
+#define ADD_REQ "add-req"//źle
+#define SUB "sub"//źle
 #define SUB_REQ "sub-req"
 #define EQ "eq"
 #define EQ_SIMPLE "eq-simple"
