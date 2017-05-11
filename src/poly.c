@@ -588,7 +588,6 @@ bool PolyIsEq(const Poly *p, const Poly *q)
     return isEq;
 }
 
-
 /**
  * Mnoży wielomian przez stałą.
  * @param[in] p : wielomian
