@@ -903,8 +903,8 @@ bool AddTest1()
                 MakePoly((unsigned)local_max_exp, poly_coef_res_arr, exp_list);
             if (!PolyIsEq(&p3, &p_expected_res))
             {
-                fprintf(stderr, "[AddTest1] error for %lu %lu", current_max_exp,
-                        local_max_exp);
+                fprintf(stderr, "[AddTest1] error for %lu %lu", (unsigned long)current_max_exp,
+                        (unsigned long)local_max_exp);
                 good = false;
             }
             PolyDestroy(&p3);
@@ -916,7 +916,7 @@ bool AddTest1()
         if (!PolyIsZero(&p3))
         {
             fprintf(stderr, "[AddTest1] error for %lu in PolyNeg add",
-                    current_max_exp);
+                    (unsigned long)current_max_exp);
             good = false;
         }
         PolyDestroy(&p1);
@@ -964,7 +964,7 @@ bool AddTest2()
             if (!PolyIsEq(&p_res, &p_expected_res))
             {
                 fprintf(stderr, "[AddTest2] error for %lu %lu\n",
-                        first_poly_len, second_poly_len);
+                        (unsigned long)first_poly_len, (unsigned long)second_poly_len);
                 good = false;
             }
             PolyDestroy(&p_res);
@@ -976,7 +976,7 @@ bool AddTest2()
         if (!PolyIsZero(&p3))
         {
             fprintf(stderr, "[AddTest2] error for %lu in PolyNeg add",
-                    first_poly_len);
+                    (unsigned long)first_poly_len);
             good = false;
         }
         PolyDestroy(&p1);
@@ -1022,8 +1022,8 @@ bool SubTest1()
                 MakePoly((unsigned)local_max_exp, poly_coef_res_arr, exp_list);
             if (!PolyIsEq(&p3, &p_expected_res))
             {
-                fprintf(stderr, "[SubTest1] error for %lu %lu", current_max_exp,
-                        local_max_exp);
+                fprintf(stderr, "[SubTest1] error for %lu %lu", (unsigned long)current_max_exp,
+                        (unsigned long)local_max_exp);
                 good = false;
             }
             PolyDestroy(&p3);
@@ -1072,7 +1072,7 @@ bool SubTest2()
             if (!PolyIsEq(&p_res, &p_expected_res))
             {
                 fprintf(stderr, "[SubTest2] error for %lu %lu\n",
-                        first_poly_len, second_poly_len);
+                        (unsigned long)first_poly_len, (unsigned long)second_poly_len);
                 good = false;
             }
             PolyDestroy(&p2);
@@ -1085,7 +1085,7 @@ bool SubTest2()
         if (!PolyIsZero(&p3))
         {
             fprintf(stderr, "[AddTest2] error for %lu in PolyNeg add",
-                    first_poly_len);
+                    (unsigned long)first_poly_len);
             good = false;
         }
         PolyDestroy(&p1);
@@ -1151,8 +1151,8 @@ bool MulTest2()
             Poly p_res = PolyMul(&p1, &p2);
             if (!PolyIsEq(&p_expected_res, &p_res))
             {
-                fprintf(stderr, "[MulTest2] error for %lu %lu\n", poly_one_len,
-                        poly_two_len);
+                fprintf(stderr, "[MulTest2] error for %lu %lu\n", (unsigned long)poly_one_len,
+                        (unsigned long)poly_two_len);
                 good = false;
             }
             PolyDestroy(&p2);
@@ -1341,6 +1341,7 @@ Poly MakePolyHelper(int dummy, ...)
     Poly res = PolyAddMonos(count, arr);
     free(arr);
     return res;
+    (void)dummy;
 }
 
 /**
