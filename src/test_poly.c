@@ -25,8 +25,8 @@
 #define EQ "eq"
 #define EQ_SIMPLE "eq-simple"
 #define RARE "rare"
-#define MONO_ADD "mono-add"
-#define OVERFLOW "overflow"
+#define MONO_ADD "mono-add"//nie przechodzi
+#define OVERFLOW "overflow"//nie przechodzi
 #define SIMPLE_ARITHMETIC "simple-aritmethic"
 #define SIMPLE_ARITHMETIC2 "simple-aritmethic2"
 

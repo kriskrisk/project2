@@ -113,20 +113,19 @@ static Mono *ListOfMonoAdd(Mono *p_list, Mono *q_list)
         }
         else
         {
-            Poly *new_coeff = (Poly *)malloc(sizeof(Poly));
-            *new_coeff = PolyAdd(&(first_in_p->p), &(first_in_q->p));
+            Poly new_coeff = PolyAdd(&(first_in_p->p), &(first_in_q->p));
 
-            if (!PolyIsZero(new_coeff))
+            if (!PolyIsZero(&new_coeff))
             {
                 Mono *new_element = (Mono *)malloc(sizeof(Mono));
-                *new_element = MonoFromPoly(new_coeff, first_in_p->exp);
+                *new_element = MonoFromPoly(&new_coeff, first_in_p->exp);
 
                 *last_element = new_element;
                 last_element = &((*last_element)->next);
             }
             else
             {
-                PolyDestroy(new_coeff);
+                PolyDestroy(&new_coeff);
             }
 
             first_in_p = first_in_p->next;
@@ -219,6 +218,72 @@ Poly PolyAdd(const Poly *p, const Poly *q)
 }
 
 /**
+ * Dodaje dwa jednomiany o tym samym wykładniku.
+ * Jeśli w wyniku dodawania powstaje wielomian zerowy zwraca NULL.
+ * @param[in] first : jednomian
+ * @param[in] secound : jednomian
+ * @return wysumowany jednomian
+ */
+static Mono *Merge(Mono *first, Mono *secound)
+{
+    Mono *merged = (Mono *)malloc(sizeof(Mono));
+    Poly p = PolyAdd(&first->p, &secound->p);
+
+    if (PolyIsZero(&p))
+    {
+        free(merged);
+        //PolyDestroy(&p);
+        return NULL;
+    }
+
+    *merged = MonoFromPoly(&p, first->exp);
+
+    return merged;
+}
+
+/**
+ * Sumuje jednomiany o tych samych wykładnikach znajdujące się w liście.
+ * Zakładamy, że lista jest posortowana nierosnąco.
+ * @param[in] list : wskaźnik na listę jednomianów
+ */
+static void MergeSameExp(Mono **list)
+{
+    if (*list != NULL && (*list)->next != NULL)
+    {
+        if ((*list)->exp == (*list)->next->exp)
+        {
+            Mono *temp = Merge(*list, (*list)->next);
+
+            if (temp != NULL)
+            {
+                temp->next = (*list)->next->next;
+            }
+            else
+            {
+                temp = (*list)->next->next;
+            }
+
+            MonoDestroy((*list)->next);
+            MonoDestroy(*list);
+
+            //PolyDestroy(&(*list)->next->p);
+            //PolyDestroy(&(*list)->p);
+//problem: nie każdy jednomian musiał być zaalokowany
+            //zmieniam zdanie, skoro jednomian jest w liście wielomianu to musi być zaalokowany
+            free((*list)->next);
+            free(*list);
+
+            *list = temp;
+            MergeSameExp(list);
+        }
+        else
+        {
+            MergeSameExp(&(*list)->next);
+        }
+    }
+}
+
+/**
  * Tworzy listę z jednomianów z tablicy.
  * Przejmuje na własność zawartość tablicy @p monos.
  * @param[in] count : liczba jednomianów w tablicy
@@ -260,6 +325,7 @@ static Mono *MakeListFromArray(unsigned count, const Mono monos[])
     }
 
     *last = NULL;
+    MergeSameExp(&list);
     return list;
 }
 
@@ -333,72 +399,6 @@ static void PlaceInList(Mono **list, Mono *new_element)
             {
                 PlaceInList(&(*list)->next, new_element);
             }
-        }
-    }
-}
-
-/**
- * Dodaje dwa jednomiany o tym samym wykładniku.
- * Jeśli w wyniku dodawania powstaje wielomian zerowy zwraca NULL.
- * @param[in] first : jednomian
- * @param[in] secound : jednomian
- * @return wysumowany jednomian
- */
-static Mono *Merge(Mono *first, Mono *secound)
-{
-    Mono *merged = (Mono *)malloc(sizeof(Mono));
-    Poly p = PolyAdd(&first->p, &secound->p);
-
-    if (PolyIsZero(&p))
-    {
-        free(merged);
-        //PolyDestroy(&p);
-        return NULL;
-    }
-
-    *merged = MonoFromPoly(&p, first->exp);
-
-    return merged;
-}
-
-/**
- * Sumuje jednomiany o tych samych wykładnikach znajdujące się w liście.
- * Zakładamy, że lista jest posortowana nierosnąco.
- * @param[in] list : wskaźnik na listę jednomianów
- */
-static void MergeSameExp(Mono **list)
-{
-    if (*list != NULL && (*list)->next != NULL)
-    {
-        if ((*list)->exp == (*list)->next->exp)
-        {
-            Mono *temp = Merge(*list, (*list)->next);
-
-            if (temp != NULL)
-            {
-                temp->next = (*list)->next->next;
-            }
-            else
-            {
-                temp = (*list)->next->next;
-            }
-
-            MonoDestroy((*list)->next);
-            MonoDestroy(*list);
-
-            //PolyDestroy(&(*list)->next->p);
-            //PolyDestroy(&(*list)->p);
-//problem: nie każdy jednomian musiał być zaalokowany
-            //zmieniam zdanie, skoro jednomian jest w liście wielomianu to musi być zaalokowany
-            free((*list)->next);
-            free(*list);
-
-            *list = temp;
-            MergeSameExp(list);
-        }
-        else
-        {
-            MergeSameExp(&(*list)->next);
         }
     }
 }
