@@ -318,7 +318,7 @@ static Mono *MakeListFromArray(unsigned count, const Mono monos[])
 
     while (i < count)
     {
-        if (hack_monos[i].exp == hack_monos[j].exp && j < count)
+        if (j < count && hack_monos[i].exp == hack_monos[j].exp)
         {
             Poly p = PolyAdd(&hack_monos[i].p, &hack_monos[j].p);
             Mono sum = MonoFromPoly(&p, hack_monos[i].exp);
@@ -395,6 +395,7 @@ Poly PolyAddMonos(unsigned count, const Mono monos[])
         if (PolyIsZero(&mono_list->p))
         {
             sum = PolyZero();
+            free(mono_list);
         }
         else
         {
@@ -532,7 +533,8 @@ static void AllCoeffNeg(Poly *p)
     }
 }
 
-Poly PolyNeg(const Poly *p) {
+Poly PolyNeg(const Poly *p)
+{
     Poly negated_poly = PolyClone(p);
     AllCoeffNeg(&negated_poly);
 
@@ -719,6 +721,7 @@ Poly PolyAt(const Poly *p, poly_coeff_t x)
     unsigned int all_mono_list_len = 0;
     Mono *iterator = p->list_of_mono;
 
+    //zlicza ile jednomianów powinno znaleźć się w tablicy
     for (unsigned int i = 0; i < p_list_len; i++)
     {
         if (iterator->p.is_normal)
