@@ -1,32 +1,32 @@
-#include <stdio.h>
 #include "poly.h"
 #include "const_arr.h"
 #include <assert.h>
 #include <limits.h>
+#include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
 
-#define ALL_TESTS "all"//źle
+#define ALL_TESTS "all"
 #define MEMORY "memory"
-#define LONG_POLYNOMIAL "long-polynomial"//długo...
+#define LONG_POLYNOMIAL "long-polynomial"//segfault - potencjalnym problemem może być PolyAt
 #define DEG "deg"
 #define DEG_SIMPLE "deg-simple"
 #define DEG_OP "deg-op"
 #define DEG_BY "deg-by"
-#define SIMPLE_AT "simple-at"//ten long nie przechodzi, reszta dobrze
+#define SIMPLE_AT "simple-at"
 #define SIMPLE_AT2 "simple-at2"
 #define AT "at"
 #define MUL_SIMPLE "mul-simple"
 #define MUL "mul"
-#define ADD "add"//przechodzi, ale za długo mieli
-#define ADD_REQ "add-req"//źle-message
-#define SUB "sub"//przechodzi, ale za długo mieli
-#define SUB_REQ "sub-req"//źle-message
+#define ADD "add"
+#define ADD_REQ "add-req"
+#define SUB "sub"
+#define SUB_REQ "sub-req"
 #define EQ "eq"
 #define EQ_SIMPLE "eq-simple"
 #define RARE "rare"
-#define MONO_ADD "mono-add"//nie przechodzi
-#define OVERFLOW "overflow"//nie przechodzi
+#define MONO_ADD "mono-add"
+#define OVERFLOW "overflow"
 #define SIMPLE_ARITHMETIC "simple-aritmethic"
 #define SIMPLE_ARITHMETIC2 "simple-aritmethic2"
 
@@ -1341,7 +1341,6 @@ Poly MakePolyHelper(int dummy, ...)
     Poly res = PolyAddMonos(count, arr);
     free(arr);
     return res;
-    (void)dummy;
 }
 
 /**
@@ -1660,7 +1659,7 @@ bool SimpleAtTest()
 {
     bool res = true;
     res &= TestAt(C(2), 1, C(2));
-    //res &= TestAt(P(C(1), 0, C(1), 18), 10, C(1000000000000000001L));
+    res &= TestAt(P(C(1), 0, C(1), 18), 10, C(1000000000000000001L));
     res &= TestAt(P(C(3), 1, C(2), 3, C(1), 5), 10, C(102030));
     res &= TestAt(P(P(C(1), 4), 0, P(C(1), 2), 2, C(1), 3), 2,
                   P(C(8), 0, C(4), 2, C(1), 4));
