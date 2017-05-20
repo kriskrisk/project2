@@ -189,10 +189,79 @@ static Mono *PolyGetList(const Poly *p)
         return new_list;
     }
 
-    return p->list_of_mono;
+    return ListOfMonoClone(p->list_of_mono);
+}
+
+static unsigned int NumberOfMonos(const Poly *p)
+{
+    if (!p->is_normal) {
+        return 1;
+    }
+
+    unsigned int count = 0;
+    Mono *itr = p->list_of_mono;
+
+    while (itr != NULL) {
+        itr = itr->next;
+        count++;
+    }
+
+    return count;
+}
+
+static void AddMonosToArray(const Poly *p, Mono monos[], unsigned int first_idx)
+{
+    if (!p->is_normal)
+    {
+        Poly poly = PolyClone(p);
+        monos[first_idx] = MonoFromPoly(&poly, 0);
+    }
+    else
+    {
+        Mono *p_itr = p->list_of_mono;
+
+        while (p_itr != NULL)
+        {
+            monos[first_idx] = MonoClone(p_itr);
+            first_idx++;
+            p_itr = p_itr->next;
+        }
+    }
 }
 
 Poly PolyAdd(const Poly *p, const Poly *q)
+{
+    if (PolyIsZero(p))
+    {
+        return PolyClone(q);
+    }
+
+    if (PolyIsZero(q))
+    {
+        return PolyClone(p);
+    }
+
+    if (!p->is_normal && !q->is_normal)
+    {
+        return PolyFromCoeff(p->coeff + q->coeff);
+    }
+
+    size_t p_list_len = NumberOfMonos(p);
+    size_t q_list_len = NumberOfMonos(q);
+
+    size_t size = p_list_len + q_list_len;
+    Mono *add_array = (Mono *)calloc(size, sizeof(Mono));
+
+    AddMonosToArray(p, add_array, 0);
+    AddMonosToArray(q, add_array, p_list_len);
+
+    Poly result = PolyAddMonos(size, add_array);
+    free(add_array);
+
+    return result;
+}
+
+Poly PolyAdd2(const Poly *p, const Poly *q)
 {
     if (!p->is_normal && !q->is_normal)
     {
@@ -230,6 +299,13 @@ Poly PolyAdd(const Poly *p, const Poly *q)
     if (summed_list == NULL)
     {
         return PolyZero();
+    }
+
+    if (summed_list->exp == 0 && PolyIsCoeff(&summed_list->p))
+    {
+        Poly result = PolyClone(&summed_list->p);
+        ListOfMonoDestroy(summed_list);
+        return result;
     }
 
     return (Poly) {.is_normal = true, .list_of_mono = summed_list};
@@ -395,6 +471,11 @@ Poly PolyAddMonos(unsigned count, const Mono monos[])
         if (PolyIsZero(&mono_list->p))
         {
             sum = PolyZero();
+            free(mono_list);
+        }
+        else if (mono_list->exp == 0)
+        {
+            sum = PolyClone(&mono_list->p);
             free(mono_list);
         }
         else
