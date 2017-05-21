@@ -28,7 +28,7 @@ static void ListOfMonoDestroy(Mono *list_of_mono)
  * @param[in] list : lista jednomianów.
  * @return ilość elementów w liście.
  */
-static  unsigned int ListLen(Mono *list)
+static unsigned int ListLen(Mono *list)
 {
     unsigned int list_len = 0;
     Mono *iterator = list;
