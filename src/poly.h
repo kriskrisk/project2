@@ -19,6 +19,8 @@ typedef long poly_coeff_t;
 /** Typ wykładników wielomianu */
 typedef int poly_exp_t;
 
+struct Mono;
+
 /**
  * Struktura przechowująca wielomian.
  * Wielomian jest listą jednomianów lub stałą.
@@ -28,11 +30,11 @@ typedef int poly_exp_t;
  */
 typedef struct Poly
 {
-    bool is_normal; ///< czy wielomian jest stały czy normalny
+    struct Mono *mono_arr; ///< czy wielomian jest stały czy normalny
     union
     {
         poly_coeff_t coeff; ///< wielomian stały
-        struct Mono *list_of_mono; ///< wielomian normaly
+        unsigned size; ///< wielomian normaly
     };
 } Poly;
 
@@ -46,7 +48,6 @@ typedef struct Mono
 {
     Poly p; ///< współczynnik
     poly_exp_t exp; ///< wykładnik
-    struct Mono *next;
 } Mono;
 
 /**
@@ -56,7 +57,7 @@ typedef struct Mono
  */
 static inline Poly PolyFromCoeff(poly_coeff_t c)
 {
-    return (Poly) {.is_normal = false, .coeff = c};
+    return (Poly) {.mono_arr = NULL, .coeff = c};
 }
 
 /**
@@ -77,7 +78,7 @@ static inline Poly PolyZero()
  */
 static inline Mono MonoFromPoly(const Poly *p, poly_exp_t e)
 {
-    return (Mono) {.p = *p, .exp = e, .next = NULL};
+    return (Mono) {.p = *p, .exp = e};
 }
 
 /**
@@ -87,7 +88,7 @@ static inline Mono MonoFromPoly(const Poly *p, poly_exp_t e)
  */
 static inline bool PolyIsCoeff(const Poly *p)
 {
-    return !p->is_normal;
+    return p->mono_arr == NULL;
 }
 
 /**
@@ -97,7 +98,7 @@ static inline bool PolyIsCoeff(const Poly *p)
  */
 static inline bool PolyIsZero(const Poly *p)
 {
-    return !p->is_normal && p->coeff == 0;
+    return p->mono_arr == NULL && p->coeff == 0;
 }
 
 /**
@@ -129,7 +130,7 @@ extern Poly PolyClone(const Poly *p);
  */
 static inline Mono MonoClone(const Mono *m)
 {
-    return (Mono) {.p = PolyClone(&m->p), .exp = m->exp, .next = NULL};
+    return (Mono) {.p = PolyClone(&m->p), .exp = m->exp};
 }
 
 /**

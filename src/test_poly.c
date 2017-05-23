@@ -8,7 +8,7 @@
 
 #define ALL_TESTS "all"
 #define MEMORY "memory"
-#define LONG_POLYNOMIAL "long-polynomial"//segfault - potencjalnym problemem może być PolyAt
+#define LONG_POLYNOMIAL "long-polynomial"
 #define DEG "deg"
 #define DEG_SIMPLE "deg-simple"
 #define DEG_OP "deg-op"
@@ -19,7 +19,7 @@
 #define MUL_SIMPLE "mul-simple"
 #define MUL "mul"
 #define ADD "add"
-#define ADD_REQ "add-req"
+#define ADD_REQ "add-req"//długo
 #define SUB "sub"
 #define SUB_REQ "sub-req"
 #define EQ "eq"
@@ -86,7 +86,7 @@ void MemoryTest();
 
 void PrintHelp(char *);
 
-int main2(int argc, char **argv)
+int main(int argc, char **argv)
 {
     if (argc != 2)
     {
