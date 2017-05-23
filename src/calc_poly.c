@@ -64,44 +64,26 @@ void Push(Stack *s, Poly p)
 
 void Pop(Stack *s)
 {
-    if (IsEmpty(s))
-    {
-        printf("\nStack is Empty\n");
-    }
-    else
-    {
-        Node *to_delete;
-        to_delete = s->top;
-        s->top = s->top->next;
-        PolyDestroy(&to_delete->p);
-        free(to_delete);
-    }
+    assert(s->top != NULL);
+    Node *to_delete;
+    to_delete = s->top;
+    s->top = s->top->next;
+    PolyDestroy(&to_delete->p);
+    free(to_delete);
 }
 
 Poly Top(Stack *s)
 {
-    if (IsEmpty(s))
-    {
-        printf("\nStack is Empty\n");
-        return PolyZero();//do poprawy
-    }
-    else
-    {
-        return s->top->p;
-    }
+    assert(s->top != NULL);
+    return s->top->p;
 }
 
 Poly Secound(Stack *s)
 {
-    if (!IsEmpty(s) && s->top->next != NULL)
-    {
-        return s->top->next->p;
-    }
-    //error?
-    return
+    assert(s->top != NULL && s->top->next != NULL);
+    return s->top->next->p;
 }
 
-//czeba zalokować coś na to co zwróci
 Poly PopAndReturn(Stack *s)
 {
     assert(s->top != NULL);
@@ -309,12 +291,12 @@ long IsClosing(char *line, long pos)
     return Choose(IsPlus(line, pos + 1), IsComma(line, pos + 1));
 }
 
-bool CheckSizeOfNumber(char *str, int type)
+long CheckSizeOfNumber(char *str, long pos, int type)
 {
     long long number = 0;
-    unsigned i = 0;
-    long long max;
-    long long min;
+    long i = pos;
+    long long max = 0;
+    long long min = 0;
 
     if (type == EXP)
     {
@@ -332,21 +314,42 @@ bool CheckSizeOfNumber(char *str, int type)
         min = LONG_MIN;
     }
 
-    while (isdigit(str[0]))
+    if (str[i] == '-')
     {
-        number *= 10;
-        int value = str[0] - '0';
-        number += value;
+        int value = str[i + 1] - '0';
+        number = value * (-1);
 
         if (number > max || number < min)
         {
-            return false;
+            return i + 1;
+        }
+
+        i = i + 2;
+    }
+
+    while (isdigit(str[i]))
+    {
+        number *= 10;
+        int value = str[i] - '0';
+
+        if (str[pos] == '-')
+        {
+            number -= value;
+        }
+        else
+        {
+            number += value;
+        }
+
+        if (number > max || number < min)
+        {
+            return i + 1;
         }
 
         i++;
     }
 
-    return true;
+    return CORRECT;
 }
 
 long IsNumber(char *line, long pos, bool after_comma, bool sign)
@@ -365,16 +368,25 @@ long IsNumber(char *line, long pos, bool after_comma, bool sign)
         return CORRECT;
     }
 
-    //pierwsza cyfra wczytywanej liczby
-    if (sign && !CheckSizeOfNumber(&(line[pos]), EXP))
+    int type;
+
+    if (after_comma)
     {
-        if (after_comma)
+        type = EXP;
+    }
+    else
+    {
+        type = POINT;
+    }
+
+    //pierwsza cyfra wczytywanej liczby
+    if (sign)
+    {
+        long checked_number = CheckSizeOfNumber(line, pos, type);
+
+        if (checked_number != CORRECT)
         {
-            return pos + 6;
-        }
-        else
-        {
-            return pos + 11;
+            return checked_number;
         }
     }
 
@@ -393,9 +405,33 @@ long CheckPoly(char *line)
     return Choose(IsNumber(line, 0, false, true), IsOpening(line, 0));
 }
 
-void PolyPrint(Poly *p)
+void PrintPoly(Poly *p);
+
+void PrintMono(Mono *m)
 {
-    //wypisz wielomian
+    printf("(");
+    PrintPoly(&m->p);
+    printf(",%d)", m->exp);
+}
+
+void PrintPoly(Poly *p)
+{
+    if (PolyIsCoeff(p))
+    {
+        printf("%li", p->coeff);
+    }
+    else
+    {
+        for (unsigned i = 0; i < p->size; i++)
+        {
+            PrintMono(&(p->mono_arr[i]));
+
+            if (i != p->size - 1)
+            {
+                printf("+");
+            }
+        }
+    }
 }
 
 long CalculateComand(char *command, Stack *stack)
@@ -550,9 +586,9 @@ long CalculateComand(char *command, Stack *stack)
     }
     else if(strncmp(command, "DEG_BY ", 7) == 0)
     {
-        if (!CheckSizeOfNumber(&(command[7]), IDX))
+        if (CheckSizeOfNumber(command, 7, IDX) != NULL)
         {
-
+            return WRONG_VARIABLE;
         }
 
         if (IsEmpty(stack))
@@ -563,13 +599,26 @@ long CalculateComand(char *command, Stack *stack)
         Poly p = Top(stack);
         unsigned idx = (unsigned)strtol(&(command[7]), NULL, 10);
         printf("%d", PolyDegBy(&p, idx));
+
+        return CORRECT;
     }
     else if(strncmp(command, "AT ", 3) == 0)
     {
+        if (CheckSizeOfNumber(command, 3, POINT) != CORRECT)
+        {
+            return WRONG_VALUE;
+        }
+
+        if (IsEmpty(stack))
+        {
+            return STACK_UNDERFLOW;
+        }
+
         Poly p = PopAndReturn(stack);
         poly_coeff_t x = strtol(&(command[3]), NULL, 10);
         Push(stack, PolyAt(&p, x));
 
+        return CORRECT;
     }
     else if(strncmp(command, "PRINT", 5) == 0)
     {
@@ -579,7 +628,7 @@ long CalculateComand(char *command, Stack *stack)
         }
 
         Poly p = Top(stack);
-        PolyPrint(&p);
+        PrintPoly(&p);
 
         return CORRECT;
     }
@@ -647,7 +696,7 @@ int Calculate()
             long err_col = CheckPoly(line);
             PrintError(err_col, row_number);
 
-            if (err_col != CORRECT)
+            if (err_col == CORRECT)
             {
                 Poly p = ParsePoly(line);
                 Push(stack, p);
@@ -661,7 +710,7 @@ int Calculate()
     return 0;
 }
 
-int main2(int argc, char **argv) {
+int main(int argc, char **argv) {
     char str[100];
 
     printf( "Enter a value :");
@@ -669,13 +718,16 @@ int main2(int argc, char **argv) {
 
     printf("%li", CheckPoly(str));
 
-    //scanf("%*[^\n]%*c");
+    Poly p = ParsePoly(str);
 
-    //Poly p = ParsePoly(str);
-//
-//    if (PolyIsZero(&p)) {
-//        return 1;
-//    }
+    printf("\n\n");
+    PrintPoly(&p);
+    printf("\n\n");
+    printf("%li %li %lu", INT_MAX, LONG_MAX, UINT_MAX);
+
+    if (PolyIsZero(&p)) {
+        return 1;
+    }
 
     return 0;
 }

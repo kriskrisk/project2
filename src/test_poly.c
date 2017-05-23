@@ -86,7 +86,7 @@ void MemoryTest();
 
 void PrintHelp(char *);
 
-int main(int argc, char **argv)
+int main2(int argc, char **argv)
 {
     if (argc != 2)
     {
