@@ -24,100 +24,6 @@ static int CompareMono(const void * a, const void * b){
     return (((Mono *)a)->exp - ((Mono*)b)->exp);
 }
 
-/*TESTY TESTY TESY*/
-static void PolyRealloc(Poly *p)
-{
-    assert(!PolyIsCoeff(p));
-    if (p->size == 0)
-    {
-        PolyDestroy(p);
-        p->coeff = 0;
-    }
-    else if (p->size == 1 && p->mono_arr[0].exp == 0 && PolyIsCoeff(&p->mono_arr[0].p))
-    {
-        p->coeff = p->mono_arr[0].p.coeff;
-        free(p->mono_arr);
-        p->mono_arr = NULL;
-    }
-    else
-    {
-        p->mono_arr = realloc(p->mono_arr, p->size * sizeof(Mono));
-        assert(p->mono_arr != NULL);
-    }
-}
-
-Poly PolyAddMonos2(unsigned count, const Mono monos[])
-{
-    Mono *arr = calloc(count, sizeof(Mono));
-    memcpy(arr, monos, count * sizeof(Mono));
-    qsort(arr, count, sizeof(Mono), CompareMono);
-    unsigned k = 0;
-    for (unsigned i = 0; i < count; ++i)
-    {
-        if (k == 0 || arr[i].exp != arr[k - 1].exp)
-        {
-            assert(!PolyIsZero(&arr[i].p));
-            arr[k++] = arr[i];
-        }
-        else
-        {
-            Mono m = {PolyAdd(&arr[k - 1].p, &arr[i].p), arr[i].exp};
-            PolyDestroy(&arr[k - 1].p);
-            PolyDestroy(&arr[i].p);
-            if (PolyIsZero(&m.p))
-                k--;
-            else
-                arr[k - 1] = m;
-        }
-    }
-    Poly r = (Poly) {.size = k, .mono_arr = arr};
-    PolyRealloc(&r);
-    return r;
-}
-
-static Poly PolyAlloc(unsigned size)
-{
-    assert(size > 0);
-    Mono *arr = calloc(size, sizeof(Mono));
-    assert(arr != NULL);
-    return (Poly) {.size = size, .mono_arr = arr};
-}
-
-static Poly PolyAddPolyPoly(const Poly *p, const Poly *q)
-{
-    assert(p->size > 0);
-    assert(q->size > 0);
-    Poly r = PolyAlloc(p->size + q->size);
-    unsigned i = 0, j = 0, k = 0;
-    while (i < p->size || j < q->size)
-    {
-        poly_exp_t pe = i < p->size ? p->mono_arr[i].exp : INT_MAX;
-        poly_exp_t qe = j < p->size ? q->mono_arr[j].exp : INT_MAX;
-        if (pe < qe)
-        {
-            assert(!PolyIsZero(&p->mono_arr[i].p));
-            r.mono_arr[k++] = MonoClone(&p->mono_arr[i++]);
-        }
-        else if (pe > qe)
-        {
-            assert(!PolyIsZero(&q->mono_arr[j].p));
-            r.mono_arr[k++] = MonoClone(&q->mono_arr[j++]);
-        }
-        else
-        {
-            Mono m = (Mono) {.p = PolyAdd(&p->mono_arr[i++].p, &q->mono_arr[j++].p),
-                    .exp = pe};
-            if (!PolyIsZero(&m.p))
-                r.mono_arr[k++] = m;
-        }
-    }
-    r.size = k;
-    PolyRealloc(&r);
-    return r;
-}
-
-/*TESTY TESTY TESTY*/
-
 void PolyDestroy(Poly *p)
 {
     if (!PolyIsCoeff(p))
@@ -308,6 +214,7 @@ Poly PolyAddMonos(unsigned count, const Mono monos[])
     if (j == 0)
     {
         PolyDestroy(&p);
+        p.coeff = 0;
     }
     else if (j == 1 && result_arr[0].exp == 0 && PolyIsCoeff(&result_arr[0].p))
     {
@@ -468,7 +375,7 @@ poly_exp_t PolyDeg(const Poly *p)
     }
 }
 
-bool PolyIsEq2(const Poly *p, const Poly *q)
+bool PolyIsEq(const Poly *p, const Poly *q)
 {
     if (PolyIsCoeff(p))
     {
@@ -501,7 +408,7 @@ bool PolyIsEq2(const Poly *p, const Poly *q)
     }
 }
 
-bool PolyIsEq(const Poly *p, const Poly *q)
+bool PolyIsEq3(const Poly *p, const Poly *q)
 {
     Poly subtraction = PolySub(p, q);
 
@@ -556,7 +463,7 @@ Poly PolyAt(const Poly *p, poly_coeff_t x)
     return result;
 }
 
-Poly PolyAt2(const Poly *p, poly_coeff_t x)
+Poly PolyAt3(const Poly *p, poly_coeff_t x)
 {
     if (PolyIsCoeff(p))
     {

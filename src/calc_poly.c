@@ -8,10 +8,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
-#include <mem.h>
+#include <memory.h>
 #include <ctype.h>
 #include <limits.h>
-#include <windef.h>
 
 #include "poly.h"
 
@@ -179,30 +178,39 @@ Poly ParsePoly(char *poly)
     return ParseOnePoly(next_to_parse);
 }
 
-void DoubleTheSize(char *array, unsigned size)
+char *DoubleTheSize(char *array, unsigned size)
 {
-    char *new_array = (char *)malloc(2 * size * sizeof(char));
+    char *new_array = (char *)malloc(2 * size);
     strncpy(new_array, array, size);
     free(array);
-    *array = *new_array;
+    return new_array;
 }
 
 char *ReadOneLine()
 {
-    char *line = (char *)malloc(2 * sizeof(char));
+    char *line = (char *)malloc(sizeof(char));
     unsigned first_free = 0;
-    unsigned current_size = 2;
+    unsigned current_size = 1;
 
     do
     {
         if (first_free == current_size)
         {
-            DoubleTheSize(line, current_size);
+            line = DoubleTheSize(line, current_size);
             current_size = current_size * 2;
         }
-        line[first_free] = (char)getchar();
+
+        int temp = (char)getchar();
+
+        if (temp == EOF)
+        {
+            return NULL;
+        }
+        line[first_free] = (char)temp;
         first_free++;
     } while (line[first_free - 1] != '\n');
+
+    line[first_free - 1] = '\0';
 
     realloc(line, first_free);
 
@@ -217,11 +225,31 @@ long Choose(long a, long b)
     }
     else
     {
-        return max(a, b);
+        return a > b ? a : b;
     }
 }
 
-long IsNumber(char *line, long pos, bool after_comma, bool sign);
+long ChooseMin(long a, long b)
+{
+    if (a == CORRECT && b == CORRECT)
+    {
+        return CORRECT;
+    }
+    else if (a == CORRECT)
+    {
+        return b;
+    }
+    else if (b == CORRECT)
+    {
+        return a;
+    }
+    else
+    {
+        return a > b ? b : a;
+    }
+}
+
+long IsNumber(char *line, long pos, bool after_comma, bool sign, bool first);
 
 long IsComma(char *line, long pos)
 {
@@ -234,10 +262,10 @@ long IsComma(char *line, long pos)
             return pos + 1;
         }
 
-        return CORRECT;
+        return pos + 2;
     }
 
-    return IsNumber(line, pos + 1, true, true);
+    return IsNumber(line, pos + 1, true, true, false);
 }
 
 long IsOpening(char *line, long pos)
@@ -251,10 +279,10 @@ long IsOpening(char *line, long pos)
             return pos + 1;
         }
 
-        return CORRECT;
+        return pos + 2;
     }
 
-    return Choose(IsNumber(line, pos + 1, false, true), IsOpening(line, pos + 1));
+    return Choose(IsNumber(line, pos + 1, false, true, false), IsOpening(line, pos + 1));
 }
 
 long IsPlus(char *line, long pos)
@@ -268,7 +296,7 @@ long IsPlus(char *line, long pos)
             return pos + 1;
         }
 
-        return CORRECT;
+        return pos + 2;
     }
 
     return IsOpening(line, pos + 1);
@@ -352,7 +380,7 @@ long CheckSizeOfNumber(char *str, long pos, int type)
     return CORRECT;
 }
 
-long IsNumber(char *line, long pos, bool after_comma, bool sign)
+long IsNumber(char *line, long pos, bool after_comma, bool sign, bool first)
 {
     bool is_number = isdigit(line[pos]);
     bool is_sign = line[pos] == '-';
@@ -392,17 +420,54 @@ long IsNumber(char *line, long pos, bool after_comma, bool sign)
 
     if (after_comma)
     {
-        return Choose(IsNumber(line, pos + 1, true, false), IsClosing(line, pos + 1));
+        return Choose(IsNumber(line, pos + 1, true, false, false), IsClosing(line, pos + 1));
     }
     else
     {
-        return Choose(IsNumber(line, pos + 1, false, false), IsComma(line, pos + 1));
+        if (!first)
+        {
+            return Choose(IsNumber(line, pos + 1, false, false, false), IsComma(line, pos + 1));
+        }
+
+        return IsNumber(line, pos + 1, false, false, true);
     }
+}
+
+long FirstCheck(char *line)
+{
+    long difference = 0;
+
+    for (unsigned i = 0; i < strlen(line); i++)
+    {
+        if (line[i] == '(')
+        {
+            difference++;
+        }
+        else if (line[i] == ')')
+        {
+            difference--;
+        }
+
+        if (difference < 0)
+        {
+            return i + 1;
+        }
+    }
+
+    if (difference > 0)
+    {
+        return strlen(line) + 1;
+    }
+
+    return CORRECT;
 }
 
 long CheckPoly(char *line)
 {
-    return Choose(IsNumber(line, 0, false, true), IsOpening(line, 0));
+    long first_check = FirstCheck(line);
+    long secound_check = Choose(IsNumber(line, 0, false, true, true), IsOpening(line, 0));
+
+    return ChooseMin(first_check, secound_check);
 }
 
 void PrintPoly(Poly *p);
@@ -454,11 +519,11 @@ long CalculateComand(char *command, Stack *stack)
 
         if (PolyIsCoeff(&p))
         {
-            printf("%d", 1);
+            printf("%d\n", 1);
         }
         else
         {
-            printf("%d", 0);
+            printf("%d\n", 0);
         }
 
         return CORRECT;
@@ -474,11 +539,11 @@ long CalculateComand(char *command, Stack *stack)
 
         if (PolyIsZero(&p))
         {
-            printf("%d", 1);
+            printf("%d\n", 1);
         }
         else
         {
-            printf("%d", 0);
+            printf("%d\n", 0);
         }
 
         return CORRECT;
@@ -563,30 +628,18 @@ long CalculateComand(char *command, Stack *stack)
 
         if (PolyIsEq(&p, &q))
         {
-            printf("%d", 1);
+            printf("%d\n", 1);
         }
         else
         {
-            printf("%d", 0);
+            printf("%d\n", 0);
         }
-
-        return CORRECT;
-    }
-    else if(strncmp(command, "DEG", 3) == 0)
-    {
-        if (IsEmpty(stack))
-        {
-            return STACK_UNDERFLOW;
-        }
-
-        Poly p = Top(stack);
-        printf("%d", PolyDeg(&p));
 
         return CORRECT;
     }
     else if(strncmp(command, "DEG_BY ", 7) == 0)
     {
-        if (CheckSizeOfNumber(command, 7, IDX) != NULL)
+        if (CheckSizeOfNumber(command, 7, IDX) != CORRECT)
         {
             return WRONG_VARIABLE;
         }
@@ -598,7 +651,19 @@ long CalculateComand(char *command, Stack *stack)
 
         Poly p = Top(stack);
         unsigned idx = (unsigned)strtol(&(command[7]), NULL, 10);
-        printf("%d", PolyDegBy(&p, idx));
+        printf("%d\n", PolyDegBy(&p, idx));
+
+        return CORRECT;
+    }
+    else if(strncmp(command, "DEG", 3) == 0)
+    {
+        if (IsEmpty(stack))
+        {
+            return STACK_UNDERFLOW;
+        }
+
+        Poly p = Top(stack);
+        printf("%d\n", PolyDeg(&p));
 
         return CORRECT;
     }
@@ -629,6 +694,7 @@ long CalculateComand(char *command, Stack *stack)
 
         Poly p = Top(stack);
         PrintPoly(&p);
+        printf("\n");
 
         return CORRECT;
     }
@@ -655,30 +721,30 @@ void PrintError(long error_type, unsigned curr_line)
     {
         if (error_type >= 0)
         {
-            printf("ERROR %u %li\n", curr_line, error_type);
+            fprintf(stderr, "ERROR %u %li\n", curr_line, error_type);
         }
         else if (error_type == STACK_UNDERFLOW)
         {
-            printf("ERROR %u STACK UNDERFLOW\n", curr_line);
+            fprintf(stderr, "ERROR %u STACK UNDERFLOW\n", curr_line);
         }
         else if (error_type == WRONG_COMMAND)
         {
-            printf("ERROR %u WRONG COMMAND\n", curr_line);
+            fprintf(stderr, stderr, "ERROR %u WRONG COMMAND\n", curr_line);
         }
         else if (error_type == WRONG_VALUE)
         {
-            printf("ERROR %u WRONG VALUE\n", curr_line);
+            fprintf(stderr, "ERROR %u WRONG VALUE\n", curr_line);
         }
         else if (error_type == WRONG_VARIABLE)
         {
-            printf("ERROR %u WRONG VARIABLE\n", curr_line);
+            fprintf(stderr, "ERROR %u WRONG VARIABLE\n", curr_line);
         }
     }
 }
 
 int Calculate()
 {
-    Stack *stack = NULL;
+    Stack *stack = (Stack *)malloc(sizeof(Stack));
     Initialize(stack);
     unsigned row_number = 1;
     bool koniec = false;
@@ -687,7 +753,11 @@ int Calculate()
     {
         char *line = ReadOneLine();
 
-        if (isalpha(line[0]))
+        if (line == NULL)
+        {
+            koniec = true;
+        }
+        else if (isalpha(line[0]))
         {
             PrintError(CalculateComand(line, stack), row_number);
         }
@@ -704,30 +774,13 @@ int Calculate()
         }
 
         row_number++;
-        koniec = true;
     }
 
     return 0;
 }
 
-int main(int argc, char **argv) {
-    char str[100];
-
-    printf( "Enter a value :");
-    gets( str );
-
-    printf("%li", CheckPoly(str));
-
-    Poly p = ParsePoly(str);
-
-    printf("\n\n");
-    PrintPoly(&p);
-    printf("\n\n");
-    printf("%li %li %lu", INT_MAX, LONG_MAX, UINT_MAX);
-
-    if (PolyIsZero(&p)) {
-        return 1;
-    }
+int main() {
+    Calculate();
 
     return 0;
 }
