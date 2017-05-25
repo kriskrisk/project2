@@ -7,12 +7,13 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <assert.h>
 #include <memory.h>
 #include <ctype.h>
 #include <limits.h>
 
 #include "poly.h"
+#include "check_poly.h"
+#include "stack.h"
 
 #define CORRECT -1
 #define WRONG_COMMAND -2
@@ -22,76 +23,6 @@
 #define EXP 1
 #define IDX 2
 #define POINT 3
-
-typedef struct Node
-{
-    Poly p;
-    struct Node *next;
-} Node;
-
-typedef struct Stack
-{
-    Node *top;
-} Stack;
-
-void Initialize(Stack *s)
-{
-    s->top = NULL;
-}
-
-bool IsEmpty(Stack *s)
-{
-    return s->top == NULL;
-}
-
-void Push(Stack *s, Poly p)
-{
-    Node *new_node = (Node *)malloc(sizeof(Node));
-    new_node->p = p;
-
-    if (IsEmpty(s))
-    {
-        s->top = new_node;
-        new_node->next = NULL;
-    }
-    else
-    {
-        new_node->next = s->top;
-        s->top = new_node;
-    }
-}
-
-void Pop(Stack *s)
-{
-    assert(s->top != NULL);
-    Node *to_delete;
-    to_delete = s->top;
-    s->top = s->top->next;
-    PolyDestroy(&to_delete->p);
-    free(to_delete);
-}
-
-Poly Top(Stack *s)
-{
-    assert(s->top != NULL);
-    return s->top->p;
-}
-
-Poly Secound(Stack *s)
-{
-    assert(s->top != NULL && s->top->next != NULL);
-    return s->top->next->p;
-}
-
-Poly PopAndReturn(Stack *s)
-{
-    assert(s->top != NULL);
-    Node *to_delete = s->top;
-    Poly to_return = to_delete->p;
-    s->top = s->top->next;
-    free(to_delete);
-    return to_return;
-}
 
 Poly ParseOnePoly(char **next_to_parse);
 
@@ -462,7 +393,7 @@ long FirstCheck(char *line)
     return CORRECT;
 }
 
-long CheckPoly(char *line)
+long CheckPoly2(char *line)
 {
     long first_check = FirstCheck(line);
     long secound_check = Choose(IsNumber(line, 0, false, true, true), IsOpening(line, 0));
@@ -499,16 +430,37 @@ void PrintPoly(Poly *p)
     }
 }
 
+//sprawdza czy to co znajduje się w command[pos] - command[strlen(command) - 1] jest liczbą
+bool CheckNumber(char *command, unsigned pos)
+{
+    unsigned size = strlen(command);
+
+    if (pos == size)
+    {
+        return false;
+    }
+
+    for (int i = pos; i < size; i++)
+    {
+        if (!isdigit(command[i]) && command[i] != '-')
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 long CalculateComand(char *command, Stack *stack)
 {
-    if (strncmp(command, "ZERO", 4) == 0)
+    if (strcmp(command, "ZERO") == 0)
     {
         Poly p = PolyZero();
         Push(stack, p);
 
         return CORRECT;
     }
-    else if(strncmp(command, "IS_COEFF", 8) == 0)
+    else if(strcmp(command, "IS_COEFF") == 0)
     {
         if (IsEmpty(stack))
         {
@@ -528,7 +480,7 @@ long CalculateComand(char *command, Stack *stack)
 
         return CORRECT;
     }
-    else if(strncmp(command, "IS_ZERO", 7) == 0)
+    else if(strcmp(command, "IS_ZERO") == 0)
     {
         if (IsEmpty(stack))
         {
@@ -548,7 +500,7 @@ long CalculateComand(char *command, Stack *stack)
 
         return CORRECT;
     }
-    else if(strncmp(command, "CLONE", 5) == 0)
+    else if(strcmp(command, "CLONE") == 0)
     {
         if (IsEmpty(stack))
         {
@@ -561,7 +513,7 @@ long CalculateComand(char *command, Stack *stack)
 
         return CORRECT;
     }
-    else if(strncmp(command, "ADD", 3) == 0)
+    else if(strcmp(command, "ADD") == 0)
     {
         if (IsEmpty(stack) || stack->top->next == NULL)
         {
@@ -575,7 +527,7 @@ long CalculateComand(char *command, Stack *stack)
 
         return CORRECT;
     }
-    else if(strncmp(command, "MUL", 3) == 0)
+    else if(strcmp(command, "MUL") == 0)
     {
         if (IsEmpty(stack) || stack->top->next == NULL)
         {
@@ -589,7 +541,7 @@ long CalculateComand(char *command, Stack *stack)
 
         return CORRECT;
     }
-    else if(strncmp(command, "NEG", 3) == 0)
+    else if(strcmp(command, "NEG") == 0)
     {
         if (IsEmpty(stack))
         {
@@ -602,7 +554,7 @@ long CalculateComand(char *command, Stack *stack)
 
         return CORRECT;
     }
-    else if(strncmp(command, "SUB", 3) == 0)
+    else if(strcmp(command, "SUB") == 0)
     {
         if (IsEmpty(stack) || stack->top->next == NULL)
         {
@@ -616,7 +568,7 @@ long CalculateComand(char *command, Stack *stack)
 
         return CORRECT;
     }
-    else if(strncmp(command, "IS_EQ", 5) == 0)
+    else if(strcmp(command, "IS_EQ") == 0)
     {
         if (IsEmpty(stack) || stack->top->next == NULL)
         {
@@ -639,6 +591,11 @@ long CalculateComand(char *command, Stack *stack)
     }
     else if(strncmp(command, "DEG_BY ", 7) == 0)
     {
+        if (!CheckNumber(command, 7))
+        {
+            return WRONG_VARIABLE;
+        }
+
         if (CheckSizeOfNumber(command, 7, IDX) != CORRECT)
         {
             return WRONG_VARIABLE;
@@ -655,7 +612,7 @@ long CalculateComand(char *command, Stack *stack)
 
         return CORRECT;
     }
-    else if(strncmp(command, "DEG", 3) == 0)
+    else if(strcmp(command, "DEG") == 0)
     {
         if (IsEmpty(stack))
         {
@@ -669,6 +626,11 @@ long CalculateComand(char *command, Stack *stack)
     }
     else if(strncmp(command, "AT ", 3) == 0)
     {
+        if (!CheckNumber(command, 3))
+        {
+            return WRONG_VALUE;
+        }
+
         if (CheckSizeOfNumber(command, 3, POINT) != CORRECT)
         {
             return WRONG_VALUE;
@@ -685,7 +647,7 @@ long CalculateComand(char *command, Stack *stack)
 
         return CORRECT;
     }
-    else if(strncmp(command, "PRINT", 5) == 0)
+    else if(strcmp(command, "PRINT") == 0)
     {
         if (IsEmpty(stack))
         {
@@ -698,7 +660,7 @@ long CalculateComand(char *command, Stack *stack)
 
         return CORRECT;
     }
-    else if(strncmp(command, "POP", 3) == 0)
+    else if(strcmp(command, "POP") == 0)
     {
         if (IsEmpty(stack))
         {
@@ -729,7 +691,7 @@ void PrintError(long error_type, unsigned curr_line)
         }
         else if (error_type == WRONG_COMMAND)
         {
-            fprintf(stderr, stderr, "ERROR %u WRONG COMMAND\n", curr_line);
+            fprintf(stderr, "ERROR %u WRONG COMMAND\n", curr_line);
         }
         else if (error_type == WRONG_VALUE)
         {
@@ -763,7 +725,8 @@ int Calculate()
         }
         else
         {
-            long err_col = CheckPoly(line);
+            long err_col = CheckLine(line);
+            printf("%li\n", err_col);
             PrintError(err_col, row_number);
 
             if (err_col == CORRECT)
@@ -775,6 +738,9 @@ int Calculate()
 
         row_number++;
     }
+
+    Clear(stack);
+    free(stack);
 
     return 0;
 }

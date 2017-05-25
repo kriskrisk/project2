@@ -28,7 +28,7 @@ set(SOURCE_FILES
 
 # Wskazujemy plik wykonywalny.
 add_executable(test_poly ${SOURCE_FILES})
-add_executable(calc_poly ${SOURCE_FILES})
+add_executable(calc_poly ${SOURCE_FILES} src/check_poly.c src/check_poly.h src/stack.c src/stack.h)
 
 # Dodajemy obsługę Doxygena: sprawdzamy, czy jest zainstalowany i jeśli tak to:
 find_package(Doxygen)
