@@ -1,5 +1,5 @@
 /** @file
-   Implementacja działań na wielomianach
+   Implementacja kaltulatora
 
    @author Krzysztof Olejnik <ko361240@students.mimuw.edu.pl>
 */
@@ -15,98 +15,124 @@
 #include "check_poly.h"
 #include "stack.h"
 
-#define CORRECT -1
 #define WRONG_COMMAND -2
 #define STACK_UNDERFLOW -3
 #define WRONG_VALUE -4
 #define WRONG_VARIABLE -5
-#define EXP 1
-#define IDX 2
-#define POINT 3
 
-Poly ParseOnePoly(char **next_to_parse);
+Poly ParseOnePoly(char *poly, unsigned *pos);
 
-Mono ParseOneMono(char **next_to_parse)
+Mono ParseOneMono(char *poly, unsigned *pos)
 {
     Poly poly_coeff;
+    *pos = *pos + 1;
 
-    if ((*next_to_parse)[1] == '(')
+    if (poly[*pos] == '(')
     {
-        char *temp = &(*next_to_parse)[1];
-        poly_coeff = ParseOnePoly(&temp);
-        *next_to_parse = temp;
+        poly_coeff = ParseOnePoly(poly, pos);
     }
     else
     {
-        poly_coeff_t coeff = strtol(&(*next_to_parse)[1], next_to_parse, 10);
+        char *next;
+        poly_coeff_t coeff = strtol(&poly[*pos], &next, 10);
+
+        while (&poly[*pos] != next)
+        {
+            *pos = *pos + 1;
+        }
+
         poly_coeff = PolyFromCoeff(coeff);
     }
 
-    poly_exp_t exp = (poly_exp_t)strtol(&(*next_to_parse)[1], next_to_parse, 10);
-    *next_to_parse = &(*next_to_parse)[1];
+    *pos = *pos + 1;
+
+    char *next;
+    poly_exp_t exp = (poly_exp_t)strtol(&poly[*pos], &next, 10);
+
+    while (&poly[*pos] != next)
+    {
+        *pos = *pos + 1;
+    }
+
+    *pos = *pos + 1;
 
     return MonoFromPoly(&poly_coeff, exp);
 }
 
-unsigned CountMonos(const char *next_to_parse)
+Poly ParseOnePoly(char *poly, unsigned *pos)
 {
-    int deference = 0;
-    unsigned count = 1;
-
-    for (unsigned i = 0; i < strlen(next_to_parse); i++)
+    if (poly[*pos] != '(')
     {
-        if (next_to_parse[i] == '(')
+        char *next;
+        Poly PolyCoeff = PolyFromCoeff(strtol(&poly[*pos], &next, 10));
+
+        while (&poly[*pos] != next)
         {
-            deference++;
-        }
-        else if (next_to_parse[i] == ')')
-        {
-            deference--;
-        }
-        else if (next_to_parse[i] == '+' && deference == 0)
-        {
-            count++;
+            *pos = *pos + 1;
         }
 
-        if (deference == -1 || (next_to_parse[i] == ',' && deference == 0)) {
-            break;
+        return PolyCoeff;
+    }
+
+    Mono *monos = (Mono *)malloc(sizeof(Mono));
+    unsigned size = 1;
+    unsigned first_free = 0;
+    bool end_of_list = false;
+
+    while (!end_of_list)
+    {
+        if (size == first_free)
+        {
+            size = size * 2;
+            monos = realloc(monos, size * sizeof(Mono));
+        }
+
+        if (poly[*pos + 1] != '0')//CHANGE
+        {
+            monos[first_free] = ParseOneMono(poly, pos);
+            first_free++;
+        }
+        else
+        {
+            //przesuwam się do następnego mono
+            *pos = *pos + 3;
+            while (isdigit(poly[*pos]))
+            {
+                *pos = *pos + 1;
+            }
+            *pos = *pos + 1;
+        }
+
+        //monos[first_free] = ParseOneMono(poly, pos);
+        //first_free++;
+
+        if (poly[*pos] != '+')
+        {
+            end_of_list = true;
+        }
+        else
+        {
+            *pos = *pos + 1;
         }
     }
 
-    return count;
-}
+    monos = realloc(monos, first_free * sizeof(Mono));
 
-Poly ParseOnePoly(char **next_to_parse)
-{
-    if ((*next_to_parse)[0] != '(')
+    if (first_free == 0)//CHANGE
     {
-        return PolyFromCoeff(strtol(&(*next_to_parse)[0], next_to_parse, 10));
+        return PolyZero();
     }
 
-    unsigned size = CountMonos(*next_to_parse);
-    Mono *monos = (Mono *)malloc(size * sizeof(Mono));
-
-    for (unsigned i = 0; i < size; i++)
-    {
-        if (i > 0)
-        {
-            *next_to_parse = &(*next_to_parse)[1];
-        }
-        monos[i] = ParseOneMono(next_to_parse);
-    }
-
-    Poly poly = PolyAddMonos(size, monos);
+    Poly result = PolyAddMonos(first_free, monos);
     free(monos);
 
-    return poly;
+    return result;
 }
 
 Poly ParsePoly(char *poly)
 {
-    char *dummy = poly;
-    char **next_to_parse = &dummy;
-
-    return ParseOnePoly(next_to_parse);
+    unsigned pos = 0;
+    return ParseOnePoly(poly, &pos);
 }
 
 char *DoubleTheSize(char *array, unsigned size)
@@ -127,23 +153,25 @@ char *ReadOneLine()
     {
         if (first_free == current_size)
         {
-            line = DoubleTheSize(line, current_size);
             current_size = current_size * 2;
+            line = realloc(line, current_size * sizeof(char));//DoubleTheSize(line, current_size);
         }
 
         int temp = (char)getchar();
 
         if (temp == EOF)
         {
+            free(line);
             return NULL;
         }
+
         line[first_free] = (char)temp;
         first_free++;
     } while (line[first_free - 1] != '\n');
 
     line[first_free - 1] = '\0';
 
-    realloc(line, first_free);
+    line = realloc(line, first_free);
 
     return line;
 }
@@ -160,98 +188,9 @@ long Choose(long a, long b)
     }
 }
 
-long ChooseMin(long a, long b)
-{
-    if (a == CORRECT && b == CORRECT)
-    {
-        return CORRECT;
-    }
-    else if (a == CORRECT)
-    {
-        return b;
-    }
-    else if (b == CORRECT)
-    {
-        return a;
-    }
-    else
-    {
-        return a > b ? b : a;
-    }
-}
-
-long IsNumber(char *line, long pos, bool after_comma, bool sign, bool first);
-
-long IsComma(char *line, long pos)
-{
-    bool result = line[pos] == ',';
-
-    if (pos == strlen(line) - 1 || !result)
-    {
-        if (!result)
-        {
-            return pos + 1;
-        }
-
-        return pos + 2;
-    }
-
-    return IsNumber(line, pos + 1, true, true, false);
-}
-
-long IsOpening(char *line, long pos)
-{
-    bool result = line[pos] == '(';
-
-    if (pos == strlen(line) - 1 || !result)
-    {
-        if (!result)
-        {
-            return pos + 1;
-        }
-
-        return pos + 2;
-    }
-
-    return Choose(IsNumber(line, pos + 1, false, true, false), IsOpening(line, pos + 1));
-}
-
-long IsPlus(char *line, long pos)
-{
-    bool result = line[pos] == '+';
-
-    if (pos == strlen(line) - 1 || !result)
-    {
-        if (!result)
-        {
-            return pos + 1;
-        }
-
-        return pos + 2;
-    }
-
-    return IsOpening(line, pos + 1);
-}
-
-long IsClosing(char *line, long pos)
-{
-    bool result = line[pos] == ')';
-
-    if (pos == strlen(line) - 1 || !result)
-    {
-        if (!result)
-        {
-            return pos + 1;
-        }
-
-        return CORRECT;
-    }
-
-    return Choose(IsPlus(line, pos + 1), IsComma(line, pos + 1));
-}
-
 long CheckSizeOfNumber(char *str, long pos, int type)
 {
+    bool empty = true;
     long long number = 0;
     long i = pos;
     long long max = 0;
@@ -275,6 +214,7 @@ long CheckSizeOfNumber(char *str, long pos, int type)
 
     if (str[i] == '-')
     {
+        empty = false;
         int value = str[i + 1] - '0';
         number = value * (-1);
 
@@ -288,6 +228,7 @@ long CheckSizeOfNumber(char *str, long pos, int type)
 
     while (isdigit(str[i]))
     {
+        empty = false;
         number *= 10;
         int value = str[i] - '0';
 
@@ -308,97 +249,12 @@ long CheckSizeOfNumber(char *str, long pos, int type)
         i++;
     }
 
-    return CORRECT;
-}
-
-long IsNumber(char *line, long pos, bool after_comma, bool sign, bool first)
-{
-    bool is_number = isdigit(line[pos]);
-    bool is_sign = line[pos] == '-';
-    bool result = sign ? is_number || is_sign : is_number;
-
-    if (pos == strlen(line) - 1 || !result)
+    if (empty)
     {
-        if (!result)
-        {
-            return pos + 1;
-        }
-
-        return CORRECT;
-    }
-
-    int type;
-
-    if (after_comma)
-    {
-        type = EXP;
-    }
-    else
-    {
-        type = POINT;
-    }
-
-    //pierwsza cyfra wczytywanej liczby
-    if (sign)
-    {
-        long checked_number = CheckSizeOfNumber(line, pos, type);
-
-        if (checked_number != CORRECT)
-        {
-            return checked_number;
-        }
-    }
-
-    if (after_comma)
-    {
-        return Choose(IsNumber(line, pos + 1, true, false, false), IsClosing(line, pos + 1));
-    }
-    else
-    {
-        if (!first)
-        {
-            return Choose(IsNumber(line, pos + 1, false, false, false), IsComma(line, pos + 1));
-        }
-
-        return IsNumber(line, pos + 1, false, false, true);
-    }
-}
-
-long FirstCheck(char *line)
-{
-    long difference = 0;
-
-    for (unsigned i = 0; i < strlen(line); i++)
-    {
-        if (line[i] == '(')
-        {
-            difference++;
-        }
-        else if (line[i] == ')')
-        {
-            difference--;
-        }
-
-        if (difference < 0)
-        {
-            return i + 1;
-        }
-    }
-
-    if (difference > 0)
-    {
-        return strlen(line) + 1;
+        return pos + 1;
     }
 
     return CORRECT;
-}
-
-long CheckPoly2(char *line)
-{
-    long first_check = FirstCheck(line);
-    long secound_check = Choose(IsNumber(line, 0, false, true, true), IsOpening(line, 0));
-
-    return ChooseMin(first_check, secound_check);
 }
 
 void PrintPoly(Poly *p);
@@ -440,7 +296,7 @@ bool CheckNumber(char *command, unsigned pos)
         return false;
     }
 
-    for (int i = pos; i < size; i++)
+    for (unsigned i = pos; i < size; i++)
     {
         if (!isdigit(command[i]) && command[i] != '-')
         {
@@ -524,6 +380,8 @@ long CalculateComand(char *command, Stack *stack)
         Poly q = PopAndReturn(stack);
         Poly new_poly = PolyAdd(&p, &q);
         Push(stack, new_poly);
+        PolyDestroy(&p);
+        PolyDestroy(&q);
 
         return CORRECT;
     }
@@ -538,6 +396,8 @@ long CalculateComand(char *command, Stack *stack)
         Poly q = PopAndReturn(stack);
         Poly new_poly = PolyMul(&p, &q);
         Push(stack, new_poly);
+        PolyDestroy(&p);
+        PolyDestroy(&q);
 
         return CORRECT;
     }
@@ -551,6 +411,7 @@ long CalculateComand(char *command, Stack *stack)
         Poly p = PopAndReturn(stack);
         Poly new_poly = PolyNeg(&p);
         Push(stack, new_poly);
+        PolyDestroy(&p);
 
         return CORRECT;
     }
@@ -565,6 +426,8 @@ long CalculateComand(char *command, Stack *stack)
         Poly q = PopAndReturn(stack);
         Poly new_poly = PolySub(&p, &q);
         Push(stack, new_poly);
+        PolyDestroy(&p);
+        PolyDestroy(&q);
 
         return CORRECT;
     }
@@ -644,6 +507,7 @@ long CalculateComand(char *command, Stack *stack)
         Poly p = PopAndReturn(stack);
         poly_coeff_t x = strtol(&(command[3]), NULL, 10);
         Push(stack, PolyAt(&p, x));
+        PolyDestroy(&p);
 
         return CORRECT;
     }
@@ -726,7 +590,6 @@ int Calculate()
         else
         {
             long err_col = CheckLine(line);
-            printf("%li\n", err_col);
             PrintError(err_col, row_number);
 
             if (err_col == CORRECT)
@@ -736,6 +599,7 @@ int Calculate()
             }
         }
 
+        free(line);
         row_number++;
     }
 
@@ -745,7 +609,7 @@ int Calculate()
     return 0;
 }
 
-int main() {
+int main2() {
     Calculate();
 
     return 0;

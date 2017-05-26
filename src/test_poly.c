@@ -19,7 +19,7 @@
 #define MUL_SIMPLE "mul-simple"
 #define MUL "mul"
 #define ADD "add"
-#define ADD_REQ "add-req"//długo
+#define ADD_REQ "add-req"//źle
 #define SUB "sub"
 #define SUB_REQ "sub-req"
 #define EQ "eq"
@@ -86,7 +86,7 @@ void MemoryTest();
 
 void PrintHelp(char *);
 
-int main2(int argc, char **argv)
+int main(int argc, char **argv)
 {
     if (argc != 2)
     {
