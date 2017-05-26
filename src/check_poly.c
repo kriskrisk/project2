@@ -10,6 +10,13 @@
 
 #include "check_poly.h"
 
+/**
+ * Sprawdza, czy liczba nie przekracza odpowiedniego zakresu.
+ * @param[in] str : string zawierający liczbę
+ * @param[in] pos : pozycja na której zaczyna się liczba
+ * @param[in] type : rodzaj wczytywanej liczby
+ * @return czy liczba jest poprawna
+ */
 static bool CheckSizeOfNumber(char *str, unsigned *pos, int type)
 {
     long long number = 0;
@@ -80,21 +87,51 @@ static bool CheckSizeOfNumber(char *str, unsigned *pos, int type)
     return true;
 }
 
-bool CheckCoeff(char *line, unsigned *pos)
+/**
+ * Sprawdza, czy liczba jest poprawnym współczynnikiem wielomianu.
+ * @param[in] line : string zawierający liczbę
+ * @param[in] pos : pozycja na której zaczyna się liczba
+ * @return czy liczba jest poprawnym współczynnikiem
+ */
+static bool CheckCoeff(char *line, unsigned *pos)
 {
     return CheckSizeOfNumber(line, pos, POINT);
 }
 
-bool CheckExp(char *line, unsigned *pos)
+/**
+ * Sprawdza, czy liczba jest poprawnym wykładnikiem jednomianu.
+ * @param[in] line : string zawierający liczbę
+ * @param[in] pos : pozycja na której zaczyna się liczba
+ * @return czy liczba jest poprawnym wykładnikiem
+ */
+static bool CheckExp(char *line, unsigned *pos)
 {
     return CheckSizeOfNumber(line, pos, EXP);
 }
 
-bool CheckListOfMono(char *line, unsigned *pos);
+/**
+ * Sprawdza poprawność listy jednomianów.
+ * @param[in] line : string zawierający listę jednomianów
+ * @param[in] pos : pozycja na której zaczyna się lista
+ * @return czy lista jest poprawna
+ */
+static bool CheckListOfMono(char *line, unsigned *pos);
 
-bool CheckPoly(char *line, unsigned *pos);
+/**
+ * Sprawdza poprawność wielomianu.
+ * @param[in] line : string zawierający wielomian
+ * @param[in] pos : pozycja na której zaczyna się wielomian
+ * @return czy wielomian jest poprawny
+ */
+static bool CheckPoly(char *line, unsigned *pos);
 
-bool CheckMono(char *line, unsigned *pos)
+/**
+ * Sprawdza poprawność jednomianu.
+ * @param[in] line : string zawierający jednomian
+ * @param[in] pos : pozycja na której zaczyna się jednomian
+ * @return czy jednomian jest poprawny
+ */
+static bool CheckMono(char *line, unsigned *pos)
 {
     if (line[*pos] != '(')
     {
@@ -130,7 +167,7 @@ bool CheckMono(char *line, unsigned *pos)
     return true;
 }
 
-bool CheckListOfMono(char *line, unsigned *pos)
+static bool CheckListOfMono(char *line, unsigned *pos)
 {
     bool current;
 
@@ -154,7 +191,7 @@ bool CheckListOfMono(char *line, unsigned *pos)
     }
 }
 
-bool CheckPoly(char *line, unsigned *pos)
+static bool CheckPoly(char *line, unsigned *pos)
 {
     if (line[*pos] == '(')
     {

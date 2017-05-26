@@ -1,5 +1,5 @@
 /** @file
-   Implementacja kaltulatora
+   Implementacja kaltulatora i funkcji działających na komendach.
 
    @author Krzysztof Olejnik <ko361240@students.mimuw.edu.pl>
 */
@@ -14,192 +14,28 @@
 #include "poly.h"
 #include "check_poly.h"
 #include "stack.h"
+#include "read_write_poly.h"
 
+/** Błędna komenda */
 #define WRONG_COMMAND -2
+
+/** Za mało wielomianów na stosie */
 #define STACK_UNDERFLOW -3
+
+/** Błędna liczba */
 #define WRONG_VALUE -4
+
+/** Błędna zmienna */
 #define WRONG_VARIABLE -5
 
-Poly ParseOnePoly(char *poly, unsigned *pos);
-
-Mono ParseOneMono(char *poly, unsigned *pos)
-{
-    Poly poly_coeff;
-    *pos = *pos + 1;
-
-    if (poly[*pos] == '(')
-    {
-        poly_coeff = ParseOnePoly(poly, pos);
-    }
-    else
-    {
-        char *next;
-        poly_coeff_t coeff = strtol(&poly[*pos], &next, 10);
-
-        while (&poly[*pos] != next)
-        {
-            *pos = *pos + 1;
-        }
-
-        poly_coeff = PolyFromCoeff(coeff);
-    }
-
-    *pos = *pos + 1;
-
-    char *next;
-    poly_exp_t exp = (poly_exp_t)strtol(&poly[*pos], &next, 10);
-
-    while (&poly[*pos] != next)
-    {
-        *pos = *pos + 1;
-    }
-
-    *pos = *pos + 1;
-
-    return MonoFromPoly(&poly_coeff, exp);
-}
-
-Poly ParseOnePoly(char *poly, unsigned *pos)
-{
-    if (poly[*pos] != '(')
-    {
-        char *next;
-        Poly PolyCoeff = PolyFromCoeff(strtol(&poly[*pos], &next, 10));
-
-        while (&poly[*pos] != next)
-        {
-            *pos = *pos + 1;
-        }
-
-        return PolyCoeff;
-    }
-
-    Mono *monos = (Mono *)malloc(sizeof(Mono));
-    unsigned size = 1;
-    unsigned first_free = 0;
-    bool end_of_list = false;
-
-    while (!end_of_list)
-    {
-        if (size == first_free)
-        {
-            size = size * 2;
-            monos = realloc(monos, size * sizeof(Mono));
-        }
-
-        if (poly[*pos + 1] == '0')
-        {
-            //przesuwam pos do następnego jednomianu
-            *pos = *pos + 3;
-
-            while (isdigit(poly[*pos]))
-            {
-                *pos = *pos + 1;
-            }
-
-            *pos = *pos + 1;
-        }
-        else if (poly[*pos + 1] == '-' && poly[*pos + 2] == '0')
-        {
-          //przesuwam pos do następnego jednomianu
-          *pos = *pos + 4;
-
-          while (isdigit(poly[*pos]))
-          {
-              *pos = *pos + 1;
-          }
-
-          *pos = *pos + 1;
-        }
-        else
-        {
-          monos[first_free] = ParseOneMono(poly, pos);
-          first_free++;
-        }
-
-        if (poly[*pos] != '+')
-        {
-            end_of_list = true;
-        }
-        else
-        {
-            *pos = *pos + 1;
-        }
-    }
-
-    monos = realloc(monos, first_free * sizeof(Mono));
-
-    if (first_free == 0)
-    {
-        return PolyZero();
-    }
-
-    Poly result = PolyAddMonos(first_free, monos);
-    free(monos);
-
-    return result;
-}
-
-Poly ParsePoly(char *poly)
-{
-    unsigned pos = 0;
-    return ParseOnePoly(poly, &pos);
-}
-
-char *DoubleTheSize(char *array, unsigned size)
-{
-    char *new_array = (char *)malloc(2 * size);
-    strncpy(new_array, array, size);
-    free(array);
-    return new_array;
-}
-
-char *ReadOneLine()
-{
-    char *line = (char *)malloc(sizeof(char));
-    unsigned first_free = 0;
-    unsigned current_size = 1;
-
-    do
-    {
-        if (first_free == current_size)
-        {
-            current_size = current_size * 2;
-            line = realloc(line, current_size * sizeof(char));//DoubleTheSize(line, current_size);
-        }
-
-        int temp = (char)getchar();
-
-        if (temp == EOF)
-        {
-            free(line);
-            return NULL;
-        }
-
-        line[first_free] = (char)temp;
-        first_free++;
-    } while (line[first_free - 1] != '\n');
-
-    line[first_free - 1] = '\0';
-
-    line = realloc(line, first_free);
-
-    return line;
-}
-
-long Choose(long a, long b)
-{
-    if (a == CORRECT || b == CORRECT)
-    {
-        return CORRECT;
-    }
-    else
-    {
-        return a > b ? a : b;
-    }
-}
-
-long CheckSizeOfNumber(char *str, long pos, int type)
+/**
+ * Sprawdza, czy liczba nie przekracza odpowiedniego zakresu.
+ * @param[in] str : string zawierający liczbę
+ * @param[in] pos : pozycja na której zaczyna się liczba
+ * @param[in] type : rodzaj wczytywanej liczby
+ * @return czy liczba jest poprawna
+ */
+static long CheckSizeOfNumber(char *str, long pos, int type)
 {
     bool empty = true;
     long long number = 0;
@@ -268,36 +104,13 @@ long CheckSizeOfNumber(char *str, long pos, int type)
     return CORRECT;
 }
 
-void PrintPoly(Poly *p);
-
-void PrintMono(Mono *m)
-{
-    printf("(");
-    PrintPoly(&m->p);
-    printf(",%d)", m->exp);
-}
-
-void PrintPoly(Poly *p)
-{
-    if (PolyIsCoeff(p))
-    {
-        printf("%li", p->coeff);
-    }
-    else
-    {
-        for (unsigned i = 0; i < p->size; i++)
-        {
-            PrintMono(&(p->arr[i]));
-
-            if (i != p->size - 1)
-            {
-                printf("+");
-            }
-        }
-    }
-}
-
-//sprawdza czy to co znajduje się w command[pos] - command[strlen(command) - 1] jest liczbą
+/**
+ * Sprawdza, czy ciąg znaków jest liczbą.
+ * Rozpatrywany jest ciąg znaków od pozycji pos do kończa stringa.
+ * @param[in] command : string zawierający liczbę
+ * @param[in] pos : pozycja na której zaczyna się liczba
+ * @return czy wszystkie znaki to cyfry
+ */
 bool CheckNumber(char *command, unsigned pos)
 {
     unsigned size = strlen(command);
@@ -318,6 +131,14 @@ bool CheckNumber(char *command, unsigned pos)
     return true;
 }
 
+/**
+ * Przetwarza komendę.
+ * Zwraca pozycję na której wystąpił błąd w komendzie.
+ * Jeśli komenda jest poprawna zwraca -1 (CORRACT).
+ * @param[in] command : string zawierający komendę
+ * @param[in] stack : stos
+ * @return czy liczba jest poprawna
+ */
 long CalculateComand(char *command, Stack *stack)
 {
     if (strcmp(command, "ZERO") == 0)
@@ -552,6 +373,11 @@ long CalculateComand(char *command, Stack *stack)
     }
 }
 
+/**
+ * Gdzy komenda nie jest poprawna wypisuje odpowiedni komunikat.
+ * @param[in] error_type : jeden z czterech typów błędu
+ * @param[in] curr_line : aktualny wiersz
+ */
 void PrintError(long error_type, unsigned curr_line)
 {
     if (error_type != CORRECT)
@@ -579,10 +405,15 @@ void PrintError(long error_type, unsigned curr_line)
     }
 }
 
+/**
+ * Wykonuje działania na wielomianach.
+ * Inicjuje stos, wczytuje linie i wykonuje odpowiedznie czynności
+ * do momentu wczytania EOF.
+ * @return zwraca 0 gdy operacje się powiodły
+ */
 int Calculate()
 {
-    Stack *stack = (Stack *)malloc(sizeof(Stack));
-    Initialize(stack);
+    Stack *stack = Initialize();
     unsigned row_number = 1;
     bool koniec = false;
 

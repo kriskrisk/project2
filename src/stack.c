@@ -4,13 +4,16 @@
    @author Krzysztof Olejnik <ko361240@students.mimuw.edu.pl>
 */
 
-#include <assert.h>
+#include <stdlib.h>
 
 #include "stack.h"
 
-void Initialize(Stack *s)
+Stack *Initialize()
 {
+    Stack *s = (Stack *)malloc(sizeof(Stack));
     s->top = NULL;
+
+    return s;
 }
 
 bool IsEmpty(Stack *s)
