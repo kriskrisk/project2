@@ -28,7 +28,8 @@ set(SOURCE_FILES
     src/check_poly.h
     src/stack.c
     src/stack.h
-        src/read_write_poly.c src/read_write_poly.c.h src/read_write_poly.h)
+    src/read_write_poly.c
+    src/read_write_poly.h)
 
 # Wskazujemy plik wykonywalny.
 add_executable(calc_poly ${SOURCE_FILES})
